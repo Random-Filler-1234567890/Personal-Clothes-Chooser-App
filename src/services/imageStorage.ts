@@ -28,8 +28,3 @@ export function deleteImage(uri?: string): void {
     // best-effort cleanup only
   }
 }
-
-export async function imageToBase64(uri: string): Promise<string> {
-  const file = new File(uri);
-  return file.base64();
-}

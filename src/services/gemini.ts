@@ -2,6 +2,10 @@ import { ALL_CATEGORIES, ALL_FORMALITIES } from '@/src/constants/categories';
 import type { Category, ClothingItem, Fit, Formality, Season, Sleeve, Subcategory, Tier } from '@/src/types';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+const VALID_TIERS: Tier[] = ['S', 'A', 'B', 'C', 'D', 'F'];
+const VALID_FITS: Fit[] = ['loose', 'regular', 'tight', 'relaxed'];
+const VALID_SLEEVES: Sleeve[] = ['sleeveless', 'short', 'long', 'n/a'];
+const VALID_SEASONS: Season[] = ['all', 'warm', 'cool'];
 
 export class GeminiError extends Error {}
 
@@ -88,7 +92,21 @@ Respond with ONLY a JSON object, no prose, matching exactly this shape:
 }`;
 
   const parsed = await callGemini(apiKey, model, prompt, image);
-  return parsed as IdentifiedClothing;
+  if (typeof parsed?.name !== 'string' || !ALL_CATEGORIES.includes(parsed.category)) {
+    throw new GeminiError('AI response was missing a usable name or category.');
+  }
+  return {
+    name: parsed.name,
+    category: parsed.category,
+    subcategory: typeof parsed.subcategory === 'string' && parsed.subcategory ? parsed.subcategory : 'tshirt',
+    colors: Array.isArray(parsed.colors) ? parsed.colors.filter((c: unknown) => typeof c === 'string') : [],
+    formality: ALL_FORMALITIES.includes(parsed.formality) ? parsed.formality : 'casual',
+    fit: VALID_FITS.includes(parsed.fit) ? parsed.fit : undefined,
+    sleeve: VALID_SLEEVES.includes(parsed.sleeve) ? parsed.sleeve : undefined,
+    season: VALID_SEASONS.includes(parsed.season) ? parsed.season : undefined,
+    pattern: typeof parsed.pattern === 'string' ? parsed.pattern : undefined,
+    brand: typeof parsed.brand === 'string' ? parsed.brand : undefined,
+  };
 }
 
 export interface OutfitEvaluation {
@@ -121,5 +139,14 @@ Respond with ONLY a JSON object, no prose, matching exactly this shape:
 }`;
 
   const parsed = await callGemini(apiKey, model, prompt, image);
-  return parsed as OutfitEvaluation;
+  if (!VALID_TIERS.includes(parsed?.tier)) {
+    throw new GeminiError('AI response was missing a usable tier.');
+  }
+  return {
+    tier: parsed.tier,
+    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+    matchedItemIds: Array.isArray(parsed.matchedItemIds)
+      ? parsed.matchedItemIds.filter((id: unknown) => typeof id === 'string')
+      : [],
+  };
 }

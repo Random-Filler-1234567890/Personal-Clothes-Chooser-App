@@ -8,7 +8,7 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { Icon } from '@/src/components/Icon';
 import { ItemFormFields, type ItemDraft } from '@/src/components/ItemFormFields';
 import { colors, radii, spacing } from '@/src/constants/theme';
-import { persistImage } from '@/src/services/imageStorage';
+import { deleteImage, persistImage } from '@/src/services/imageStorage';
 import { useClosetStore } from '@/src/store/closetStore';
 import type { ClothingItem } from '@/src/types';
 import { formatDate, formatRelative } from '@/src/utils/date';
@@ -72,7 +72,9 @@ export default function ItemDetailScreen() {
     const pickerResult = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (pickerResult.canceled || !pickerResult.assets?.[0]) return;
     const persistedUri = await persistImage(pickerResult.assets[0].uri, 'clothes');
+    const previousUri = currentItem.imageUri;
     await updateItem(currentItem.id, { imageUri: persistedUri });
+    if (previousUri) deleteImage(previousUri);
   }
 
   async function handleSave() {

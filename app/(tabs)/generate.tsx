@@ -39,6 +39,24 @@ export default function GenerateScreen() {
     [items, mustIncludeIds]
   );
 
+  function handleMustIncludeChange(nextIds: string[]) {
+    const added = nextIds.filter((id) => !mustIncludeIds.includes(id));
+    const addedCategories = new Set(
+      added.map((id) => items.find((i) => i.id === id)?.category).filter(Boolean)
+    );
+    // An outfit has one bottom-half slot, so a newly picked pants item drops any
+    // previously picked shorts item as "must include" (and vice versa) rather than
+    // silently losing one of them once outfits are generated.
+    let resolved = nextIds;
+    if (addedCategories.has('bottom')) {
+      resolved = resolved.filter((id) => items.find((i) => i.id === id)?.category !== 'shorts');
+    }
+    if (addedCategories.has('shorts')) {
+      resolved = resolved.filter((id) => items.find((i) => i.id === id)?.category !== 'bottom');
+    }
+    setMustIncludeIds(resolved);
+  }
+
   useEffect(() => {
     if (params.itemId && !mustIncludeIds.includes(params.itemId)) {
       setMustIncludeIds((prev) => [...prev, params.itemId as string]);
@@ -80,16 +98,18 @@ export default function GenerateScreen() {
   }
 
   async function handleWearToday(outfit: GeneratedOutfit) {
-    await markWorn(outfit.itemIds, todayIso());
-    const record = await addOutfit({
-      itemIds: outfit.itemIds,
-      tier: outfit.tier,
-      score: outfit.score,
-      tierReasoning: outfit.breakdown.join(' '),
-      aiEvaluated: false,
-      wornOn: todayIso(),
-      source: 'generated',
-    });
+    const [, record] = await Promise.all([
+      markWorn(outfit.itemIds, todayIso()),
+      addOutfit({
+        itemIds: outfit.itemIds,
+        tier: outfit.tier,
+        score: outfit.score,
+        tierReasoning: outfit.breakdown.join(' '),
+        aiEvaluated: false,
+        wornOn: todayIso(),
+        source: 'generated',
+      }),
+    ]);
     router.push(`/outfit/${record.id}`);
   }
 
@@ -184,7 +204,7 @@ export default function GenerateScreen() {
         title="Include these items"
         items={items.filter((i) => !i.archived)}
         selectedIds={mustIncludeIds}
-        onChange={setMustIncludeIds}
+        onChange={handleMustIncludeChange}
         onClose={() => setPickerOpen(false)}
       />
     </ScrollView>

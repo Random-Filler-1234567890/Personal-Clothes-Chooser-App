@@ -94,8 +94,10 @@ export default function EvaluateScreen() {
     if (!photo || !result) return;
     setSaving(true);
     try {
-      const persistedUri = await persistImage(photo.uri, 'outfits');
-      if (selectedIds.length) await markWorn(selectedIds, todayIso());
+      const [persistedUri] = await Promise.all([
+        persistImage(photo.uri, 'outfits'),
+        selectedIds.length ? markWorn(selectedIds, todayIso()) : Promise.resolve(),
+      ]);
       const record = await addOutfit({
         itemIds: selectedIds,
         tier: result.tier,

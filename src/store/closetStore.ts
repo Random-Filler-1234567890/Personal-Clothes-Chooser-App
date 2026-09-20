@@ -89,6 +89,9 @@ export const useClosetStore = create<ClosetState>((set, get) => ({
   },
 
   resetToSeed: async () => {
+    for (const old of get().items) {
+      if (old.imageUri) deleteImage(old.imageUri);
+    }
     const items = materializeSeed();
     await persist(items);
     await storage.writeJson(storage.keys.seeded, true);
