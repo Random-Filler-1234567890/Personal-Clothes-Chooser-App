@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
 import { Icon } from '@/src/components/Icon';
 import { ItemFormFields, type ItemDraft } from '@/src/components/ItemFormFields';
 import { colors, radii, spacing } from '@/src/constants/theme';
@@ -115,7 +117,7 @@ export default function NewItemScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
       {photo ? (
-        <View style={styles.photoWrap}>
+        <Card style={styles.photoCard}>
           <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
           <Pressable style={styles.retake} onPress={() => setPhoto(null)}>
             <Text style={styles.retakeText}>Change photo</Text>
@@ -132,27 +134,27 @@ export default function NewItemScreen() {
               )}
             </Pressable>
           ) : null}
-        </View>
+        </Card>
       ) : (
         <View style={styles.pickRow}>
           <Pressable style={styles.pickButton} onPress={() => pickPhoto(true)}>
-            <Icon name="camera.fill" size={24} color={colors.accent} />
+            <Icon name="camera-outline" size={24} color={colors.accent} />
             <Text style={styles.pickButtonText}>Take Photo</Text>
           </Pressable>
           <Pressable style={styles.pickButton} onPress={() => pickPhoto(false)}>
-            <Icon name="photo.on.rectangle" size={24} color={colors.accent} />
+            <Icon name="images-outline" size={24} color={colors.accent} />
             <Text style={styles.pickButtonText}>Choose Photo</Text>
           </Pressable>
         </View>
       )}
 
-      <View style={{ marginTop: spacing.xl }}>
+      <View style={{ marginTop: spacing.lg }}>
         <ItemFormFields draft={draft} onChange={patchDraft} />
       </View>
 
-      <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>Save item</Text>}
-      </Pressable>
+      <View style={{ marginTop: spacing.lg }}>
+        <Button label="Save item" size="lg" onPress={handleSave} loading={saving} fullWidth />
+      </View>
     </ScrollView>
   );
 }
@@ -171,8 +173,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   pickButtonText: { fontSize: 14, fontWeight: '700', color: colors.text },
-  photoWrap: { alignItems: 'center' },
-  photo: { width: '100%', height: 260, borderRadius: radii.lg, backgroundColor: colors.card },
+  photoCard: { alignItems: 'center' },
+  photo: { width: '100%', height: 260, borderRadius: radii.md, backgroundColor: colors.cardMuted },
   retake: { marginTop: spacing.sm },
   retakeText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   identifyButton: {
@@ -186,12 +188,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   identifyText: { color: colors.accent, fontWeight: '700', fontSize: 14 },
-  saveButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
 });

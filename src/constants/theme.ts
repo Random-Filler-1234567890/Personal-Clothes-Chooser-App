@@ -1,13 +1,25 @@
 export const colors = {
   bg: '#F7F5F2',
   card: '#FFFFFF',
+  cardMuted: '#F1ECE4',
   border: '#E7E2DB',
   text: '#211D18',
   textMuted: '#807869',
+  textFaint: '#ABA296',
   accent: '#C3572F',
   accentSoft: '#F3E0D4',
   success: '#3E7B4F',
+  successSoft: '#DFEBE2',
   danger: '#B23A3A',
+  dangerSoft: '#F3DEDB',
+};
+
+export const shadow = {
+  shadowColor: '#231C13',
+  shadowOpacity: 0.06,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 2,
 };
 
 export const tierColors: Record<string, string> = {

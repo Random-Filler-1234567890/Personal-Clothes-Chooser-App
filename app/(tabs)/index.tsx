@@ -1,110 +1,185 @@
-import { useNavigation, useRouter } from 'expo-router';
-import { useLayoutEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Chip } from '@/src/components/Chip';
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
+import { ClothingImage } from '@/src/components/ClothingImage';
 import { EmptyState } from '@/src/components/EmptyState';
 import { Icon } from '@/src/components/Icon';
-import { ItemCard } from '@/src/components/ItemCard';
-import { ALL_CATEGORIES, CATEGORY_LABEL } from '@/src/constants/categories';
+import { OutfitResultCard } from '@/src/components/OutfitResultCard';
+import { SectionHeader } from '@/src/components/SectionHeader';
+import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, spacing } from '@/src/constants/theme';
+import { generateOutfits } from '@/src/engine/outfitEngine';
 import { useClosetStore } from '@/src/store/closetStore';
-import type { Category } from '@/src/types';
+import { useOutfitStore } from '@/src/store/outfitStore';
+import { useSettingsStore } from '@/src/store/settingsStore';
+import type { GeneratedOutfit } from '@/src/types';
+import { daysSince, formatRelative, todayIso } from '@/src/utils/date';
 
-const GRID_GAP = spacing.md;
-const H_PADDING = spacing.lg;
+type Mood = 'good' | 'random' | 'bad';
 
-export default function ClosetScreen() {
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Still up?';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+export default function HomeScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const items = useClosetStore((s) => s.items);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<Category | 'all'>('all');
-  const { width } = useWindowDimensions();
+  const markWorn = useClosetStore((s) => s.markWorn);
+  const outfits = useOutfitStore((s) => s.outfits);
+  const addOutfit = useOutfitStore((s) => s.addOutfit);
+  const preferPants = useSettingsStore((s) => s.preferPants);
 
-  const columns = 3;
-  const cardWidth = (width - H_PADDING * 2 - GRID_GAP * (columns - 1)) / columns;
+  const [outfit, setOutfit] = useState<GeneratedOutfit | null>(null);
+  const [mood, setMood] = useState<Mood | null>(null);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable onPress={() => router.push('/item/new')} hitSlop={10} style={{ paddingHorizontal: 4 }}>
-          <Icon name="plus.circle.fill" size={26} color={colors.accent} />
-        </Pressable>
-      ),
+  const activeItems = useMemo(() => items.filter((i) => !i.archived), [items]);
+
+  const dueForRewear = useMemo(
+    () =>
+      activeItems
+        .map((i) => ({ item: i, days: daysSince(i.lastWornAt) }))
+        .sort((a, b) => b.days - a.days)
+        .slice(0, 6),
+    [activeItems]
+  );
+
+  const outfitsThisWeek = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return outfits.filter((o) => new Date(o.wornOn ?? o.createdAt).getTime() >= weekAgo).length;
+  }, [outfits]);
+
+  function roll(nextMood: Mood) {
+    const results = generateOutfits(items, { quality: nextMood, count: 1 }, preferPants);
+    setMood(nextMood);
+    setOutfit(results[0] ?? null);
+  }
+
+  const outfitItems = outfit ? outfit.itemIds.map((id) => items.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i) : [];
+
+  async function handleWearToday() {
+    if (!outfit) return;
+    const [, record] = await Promise.all([
+      markWorn(outfit.itemIds, todayIso()),
+      addOutfit({
+        itemIds: outfit.itemIds,
+        tier: outfit.tier,
+        score: outfit.score,
+        tierReasoning: outfit.breakdown.join(' '),
+        aiEvaluated: false,
+        wornOn: todayIso(),
+        source: 'generated',
+      }),
+    ]);
+    router.push(`/outfit/${record.id}`);
+  }
+
+  async function handleSaveForLater() {
+    if (!outfit) return;
+    await addOutfit({
+      itemIds: outfit.itemIds,
+      tier: outfit.tier,
+      score: outfit.score,
+      tierReasoning: outfit.breakdown.join(' '),
+      aiEvaluated: false,
+      source: 'generated',
     });
-  }, [navigation, router]);
+    setOutfit(null);
+    setMood(null);
+  }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return items
-      .filter((i) => !i.archived)
-      .filter((i) => category === 'all' || i.category === category)
-      .filter((i) => !q || i.name.toLowerCase().includes(q) || i.colors.some((c) => c.toLowerCase().includes(q)))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, query, category]);
+  const readyToRoll = activeItems.length > 0;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchWrap}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search your closet"
-          placeholderTextColor={colors.textMuted}
-          style={styles.search}
-        />
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: H_PADDING }}
-        style={styles.filterRow}
-      >
-        {(['all', ...ALL_CATEGORIES] as (Category | 'all')[]).map((c) => (
-          <Chip
-            key={c}
-            label={c === 'all' ? `All (${items.filter((i) => !i.archived).length})` : CATEGORY_LABEL[c]}
-            selected={category === c}
-            onPress={() => setCategory(c)}
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
+      <Text style={styles.greeting}>{greeting()}</Text>
+      <Text style={styles.subGreeting}>
+        {activeItems.length} pieces in your closet · {outfitsThisWeek} outfit{outfitsThisWeek === 1 ? '' : 's'} logged this week
+      </Text>
+
+      {!readyToRoll ? (
+        <Card style={{ marginTop: spacing.lg }}>
+          <EmptyState
+            icon="shirt-outline"
+            title="Your closet is empty"
+            subtitle="Add a few items first, then come back here for instant outfit picks."
           />
-        ))}
-      </ScrollView>
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon="tshirt.fill"
-          title="No items here yet"
-          subtitle="Tap the + button to add a photo of a clothing item."
-        />
+        </Card>
+      ) : !outfit ? (
+        <Card elevated style={styles.heroCard}>
+          <Icon name="sparkles" size={28} color={colors.accent} />
+          <Text style={styles.heroTitle}>What should I wear?</Text>
+          <Text style={styles.heroSubtitle}>One tap for a full outfit, picked from your own closet.</Text>
+          <Button label="Get me an outfit" size="lg" icon="sparkles" onPress={() => roll('good')} fullWidth />
+          <View style={styles.heroRow}>
+            <View style={{ flex: 1 }}>
+              <Button label="Surprise me" variant="ghost" icon="shuffle-outline" onPress={() => roll('random')} fullWidth />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button label="Make it bad" variant="ghost" icon="skull-outline" onPress={() => roll('bad')} fullWidth />
+            </View>
+          </View>
+        </Card>
       ) : (
-        <FlatList
-          style={{ flex: 1 }}
-          data={filtered}
-          keyExtractor={(i) => i.id}
-          numColumns={columns}
-          contentContainerStyle={{ padding: H_PADDING }}
-          columnWrapperStyle={{ gap: GRID_GAP }}
-          renderItem={({ item }) => (
-            <ItemCard item={item} width={cardWidth} onPress={() => router.push(`/item/${item.id}`)} />
-          )}
-        />
+        <View style={{ marginTop: spacing.lg }}>
+          <OutfitResultCard
+            outfit={outfit}
+            items={outfitItems}
+            onWearToday={handleWearToday}
+            onSave={handleSaveForLater}
+            onRegenerate={() => roll(mood ?? 'good')}
+          />
+          <Button
+            label="Never mind, start over"
+            variant="ghost"
+            onPress={() => {
+              setOutfit(null);
+              setMood(null);
+            }}
+          />
+        </View>
       )}
-    </View>
+
+      {dueForRewear.length > 0 ? (
+        <View style={{ marginTop: spacing.xl }}>
+          <SectionHeader title="Due for a rewear" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+            {dueForRewear.map(({ item, days }) => (
+              <Pressable
+                key={item.id}
+                style={styles.rewearCard}
+                onPress={() => router.push({ pathname: '/(tabs)/generate', params: { itemId: item.id } })}
+              >
+                <ClothingImage uri={item.imageUri} fallbackIcon={CATEGORY_ICON[item.category]} style={styles.rewearThumb} iconSize={22} />
+                <Text numberOfLines={1} style={styles.rewearName}>
+                  {item.name}
+                </Text>
+                <Text style={styles.rewearDays}>{Number.isFinite(days) ? formatRelative(item.lastWornAt) : 'Never worn'}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  searchWrap: { paddingHorizontal: H_PADDING, paddingTop: spacing.sm, flexShrink: 0 },
-  search: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 15,
-    color: colors.text,
-  },
-  filterRow: { marginTop: spacing.md, flexGrow: 0, flexShrink: 0 },
+  greeting: { fontSize: 26, fontWeight: '800', color: colors.text },
+  subGreeting: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  heroCard: { marginTop: spacing.lg, alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
+  heroTitle: { fontSize: 19, fontWeight: '800', color: colors.text, marginTop: spacing.xs },
+  heroSubtitle: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.sm },
+  heroRow: { flexDirection: 'row', gap: spacing.sm, alignSelf: 'stretch' },
+  rewearCard: { width: 92 },
+  rewearThumb: { width: 92, height: 92, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
+  rewearName: { fontSize: 11.5, fontWeight: '600', color: colors.text, marginTop: 4 },
+  rewearDays: { fontSize: 10.5, color: colors.textMuted },
 });

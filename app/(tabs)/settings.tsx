@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
-import { colors, radii, spacing } from '@/src/constants/theme';
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
+import { SectionHeader } from '@/src/components/SectionHeader';
+import { colors, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
@@ -30,71 +33,91 @@ export default function SettingsScreen() {
     );
   }
 
+  const activeCount = items.filter((i) => !i.archived).length;
+  const favoriteCount = items.filter((i) => i.favorite && !i.archived).length;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg }}>
-      <Text style={styles.sectionTitle}>Google AI (Gemini)</Text>
-      <Text style={styles.helper}>
-        Add your own Gemini API key to auto-identify clothes from photos and get AI-generated S–F tier reviews of
-        your outfit photos. Without a key, the app still works using its built-in styling engine.
-      </Text>
-      <TextInput
-        value={keyDraft}
-        onChangeText={setKeyDraft}
-        placeholder="Paste your Gemini API key"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry
-      />
-      <View style={styles.row}>
-        <Pressable style={styles.saveButton} onPress={saveKey}>
-          <Text style={styles.saveButtonText}>Save key</Text>
-        </Pressable>
-        <Pressable style={styles.linkButton} onPress={() => Linking.openURL('https://aistudio.google.com/apikey')}>
-          <Text style={styles.linkButtonText}>Get a key</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Use AI evaluation when available</Text>
-        <Switch
-          value={settings.useAiEvaluation}
-          onValueChange={(v) => settings.update({ useAiEvaluation: v })}
-          trackColor={{ true: colors.accent }}
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg }}>
+      <Card>
+        <SectionHeader title="Google AI (Gemini)" />
+        <Text style={styles.helper}>
+          Add your own Gemini API key to auto-identify clothes from photos and get AI-generated S–F tier reviews of
+          your outfit photos. Without a key, the app still works using its built-in styling engine.
+        </Text>
+        <TextInput
+          value={keyDraft}
+          onChangeText={setKeyDraft}
+          placeholder="Paste your Gemini API key"
+          placeholderTextColor={colors.textMuted}
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
         />
-      </View>
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Button label="Save key" onPress={saveKey} fullWidth />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button label="Get a key" variant="secondary" onPress={() => Linking.openURL('https://aistudio.google.com/apikey')} fullWidth />
+          </View>
+        </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Preferences</Text>
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Prefer pants over shorts</Text>
-        <Switch
-          value={settings.preferPants}
-          onValueChange={(v) => settings.update({ preferPants: v })}
-          trackColor={{ true: colors.accent }}
-        />
-      </View>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Use AI evaluation when available</Text>
+          <Switch
+            value={settings.useAiEvaluation}
+            onValueChange={(v) => settings.update({ useAiEvaluation: v })}
+            trackColor={{ true: colors.accent }}
+          />
+        </View>
+      </Card>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Stats</Text>
-      <View style={styles.statsCard}>
-        <Text style={styles.statLine}>{items.filter((i) => !i.archived).length} items in your closet</Text>
-        <Text style={styles.statLine}>{outfits.length} outfits logged</Text>
-      </View>
+      <Card>
+        <SectionHeader title="Preferences" />
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Prefer pants over shorts</Text>
+          <Switch
+            value={settings.preferPants}
+            onValueChange={(v) => settings.update({ preferPants: v })}
+            trackColor={{ true: colors.accent }}
+          />
+        </View>
+      </Card>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.xl, color: colors.danger }]}>Danger zone</Text>
-      <Pressable style={styles.dangerButton} onPress={confirmReset}>
-        <Text style={styles.dangerButtonText}>Reset wardrobe to starter list</Text>
-      </Pressable>
+      <Card>
+        <SectionHeader title="Stats" />
+        <View style={styles.statsRow}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{activeCount}</Text>
+            <Text style={styles.statLabel}>Items</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{outfits.length}</Text>
+            <Text style={styles.statLabel}>Outfits logged</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{favoriteCount}</Text>
+            <Text style={styles.statLabel}>Favorites</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card>
+        <SectionHeader title="Danger zone" />
+        <Button label="Reset wardrobe to starter list" variant="danger" onPress={confirmReset} fullWidth />
+      </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
   helper: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 18 },
   input: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
@@ -104,49 +127,16 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  saveButton: {
-    flex: 1,
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    paddingVertical: spacing.sm + 4,
-    alignItems: 'center',
-  },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '700' },
-  linkButton: {
-    flex: 1,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 12,
-    paddingVertical: spacing.sm + 4,
-    alignItems: 'center',
-  },
-  linkButtonText: { color: colors.accent, fontWeight: '700' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   switchLabel: { fontSize: 14, color: colors.text, fontWeight: '600', flex: 1, marginRight: spacing.sm },
-  statsCard: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: 4,
-  },
-  statLine: { fontSize: 14, color: colors.text },
-  dangerButton: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  dangerButtonText: { color: colors.danger, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', alignItems: 'center' },
+  statCell: { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  statValue: { fontSize: 18, fontWeight: '800', color: colors.text },
+  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 });

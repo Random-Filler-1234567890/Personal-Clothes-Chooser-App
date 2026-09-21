@@ -1,0 +1,26 @@
+{
+  "name": "Closet Chooser",
+  "short_name": "Closet",
+  "description": "Your wardrobe, outfit generator, and outfit tier tracker.",
+  "start_url": ".",
+  "id": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F5F2",
+  "theme_color": "#C3572F",
+  "icons": [
+    {
+      "src": "icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

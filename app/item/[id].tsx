@@ -1,12 +1,15 @@
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
+import { ClothingImage } from '@/src/components/ClothingImage';
 import { EmptyState } from '@/src/components/EmptyState';
 import { Icon } from '@/src/components/Icon';
 import { ItemFormFields, type ItemDraft } from '@/src/components/ItemFormFields';
+import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { deleteImage, persistImage } from '@/src/services/imageStorage';
 import { useClosetStore } from '@/src/store/closetStore';
@@ -47,14 +50,14 @@ export default function ItemDetailScreen() {
       title: item.name,
       headerRight: () => (
         <Pressable onPress={() => updateItem(item.id, { favorite: !item.favorite })} hitSlop={10}>
-          <Icon name={item.favorite ? 'star.fill' : 'star'} size={22} color={colors.accent} />
+          <Icon name={item.favorite ? 'star' : 'star-outline'} size={22} color={colors.accent} />
         </Pressable>
       ),
     });
   }, [navigation, item, updateItem]);
 
   if (!item || !draft) {
-    return <EmptyState icon="tshirt.fill" title="Item not found" subtitle="It may have been deleted." />;
+    return <EmptyState icon="shirt-outline" title="Item not found" subtitle="It may have been deleted." />;
   }
 
   const currentItem = item;
@@ -121,67 +124,54 @@ export default function ItemDetailScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
       <Pressable onPress={changePhoto}>
-        {item.imageUri ? (
-          <Image source={{ uri: item.imageUri }} style={styles.photo} contentFit="cover" />
-        ) : (
-          <View style={[styles.photo, styles.placeholder]}>
-            <Icon name="camera.fill" size={28} color={colors.textMuted} />
-            <Text style={styles.placeholderText}>Add a photo</Text>
-          </View>
-        )}
+        <ClothingImage uri={item.imageUri} fallbackIcon={CATEGORY_ICON[item.category]} style={styles.photo} iconSize={30} />
+        <View style={styles.photoHint}>
+          <Icon name="camera-outline" size={13} color={colors.textMuted} />
+          <Text style={styles.photoHintText}>{item.imageUri ? 'Change photo' : 'Add a photo'}</Text>
+        </View>
       </Pressable>
 
-      <View style={styles.statsRow}>
-        <Text style={styles.statText}>Worn {item.wearCount} time{item.wearCount === 1 ? '' : 's'}</Text>
-        <Text style={styles.statText}>Last worn: {formatRelative(item.lastWornAt)}</Text>
-        <Text style={styles.statText}>Added {formatDate(item.createdAt)}</Text>
-      </View>
+      <Card style={styles.statsRow} padded={false}>
+        <View style={styles.statCell}>
+          <Text style={styles.statValue}>{item.wearCount}</Text>
+          <Text style={styles.statLabel}>Times worn</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statCell}>
+          <Text style={styles.statValue}>{formatRelative(item.lastWornAt)}</Text>
+          <Text style={styles.statLabel}>Last worn</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statCell}>
+          <Text style={styles.statValue}>{formatDate(item.createdAt)}</Text>
+          <Text style={styles.statLabel}>Added</Text>
+        </View>
+      </Card>
 
       <View style={{ marginTop: spacing.lg }}>
         <ItemFormFields draft={draft} onChange={patchDraft} />
       </View>
 
-      <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>Save changes</Text>}
-      </Pressable>
-
-      <Pressable style={styles.deleteButton} onPress={confirmDelete}>
-        <Text style={styles.deleteButtonText}>Delete item</Text>
-      </Pressable>
+      <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
+        <Button label="Save changes" size="lg" onPress={handleSave} loading={saving} fullWidth />
+        <Button label="Delete item" variant="danger" onPress={confirmDelete} fullWidth />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  photo: { width: '100%', height: 260, borderRadius: radii.lg, backgroundColor: colors.card },
-  placeholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, gap: spacing.xs },
-  placeholderText: { color: colors.textMuted, fontSize: 13 },
+  photo: { width: '100%', height: 260, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border },
+  photoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'center', marginTop: spacing.sm },
+  photoHintText: { color: colors.textMuted, fontSize: 12.5, fontWeight: '600' },
   statsRow: {
-    marginTop: spacing.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: 4,
-  },
-  statText: { fontSize: 13, color: colors.textMuted },
-  saveButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.lg,
-  },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
   },
-  deleteButtonText: { color: colors.danger, fontWeight: '700', fontSize: 15 },
+  statCell: { flex: 1, alignItems: 'center', paddingVertical: spacing.md },
+  statDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  statValue: { fontSize: 14, fontWeight: '800', color: colors.text },
+  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 });

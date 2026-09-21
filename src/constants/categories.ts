@@ -1,3 +1,4 @@
+import type { IoniconName } from '@/src/components/Icon';
 import type { Category, Fit, Formality, Season, Sleeve, Subcategory, Tier } from '@/src/types';
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -13,17 +14,17 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   swimwear: 'Swimwear',
 };
 
-export const CATEGORY_ICON: Record<Category, string> = {
-  top: 'tshirt.fill',
-  bottom: 'square.stack.fill',
-  shorts: 'square.dashed',
-  outerwear: 'cloud.fill',
-  shoes: 'shoe.2.fill',
-  socks: 'square.split.2x1.fill',
-  belt: 'rectangle.compress.vertical',
-  tie: 'triangle.fill',
-  sleepwear: 'moon.fill',
-  swimwear: 'water.waves',
+export const CATEGORY_ICON: Record<Category, IoniconName> = {
+  top: 'shirt-outline',
+  bottom: 'body-outline',
+  shorts: 'body-outline',
+  outerwear: 'layers-outline',
+  shoes: 'walk-outline',
+  socks: 'square-outline',
+  belt: 'remove-outline',
+  tie: 'triangle-outline',
+  sleepwear: 'moon-outline',
+  swimwear: 'water-outline',
 };
 
 export const SUBCATEGORY_LABEL: Record<Subcategory, string> = {

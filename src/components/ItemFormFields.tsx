@@ -1,12 +1,15 @@
-import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Card } from '@/src/components/Card';
 import { Chip } from '@/src/components/Chip';
+import { Icon } from '@/src/components/Icon';
 import {
   ALL_CATEGORIES,
   ALL_FORMALITIES,
   CATEGORY_LABEL,
   FIT_LABEL,
+  FORMALITY_LABEL,
   SEASON_LABEL,
   SLEEVE_LABEL,
   SUBCATEGORIES_BY_CATEGORY,
@@ -33,9 +36,9 @@ const FITS: Fit[] = ['loose', 'regular', 'tight', 'relaxed'];
 const SLEEVES: Sleeve[] = ['short', 'long', 'sleeveless', 'n/a'];
 const SEASONS: Season[] = ['all', 'warm', 'cool'];
 
-function Section({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={styles.section}>
+    <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       {children}
     </View>
@@ -71,109 +74,143 @@ function ChipRow<T extends string>({
 
 export function ItemFormFields({ draft, onChange }: { draft: ItemDraft; onChange: (patch: Partial<ItemDraft>) => void }) {
   const subcats = SUBCATEGORIES_BY_CATEGORY[draft.category] ?? [];
+  const [showMore, setShowMore] = useState(
+    !!(draft.brand?.trim() || draft.pattern?.trim() || draft.notes?.trim())
+  );
 
   return (
-    <View>
-      <Section label="Name">
-        <TextInput
-          value={draft.name}
-          onChangeText={(name) => onChange({ name })}
-          placeholder="e.g. Black Batman graphic tee"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-        />
-      </Section>
+    <View style={{ gap: spacing.lg }}>
+      <Card>
+        <Field label="Name">
+          <TextInput
+            value={draft.name}
+            onChangeText={(name) => onChange({ name })}
+            placeholder="e.g. Black Batman graphic tee"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+          />
+        </Field>
 
-      <Section label="Category">
-        <ChipRow
-          options={ALL_CATEGORIES}
-          value={draft.category}
-          labels={CATEGORY_LABEL}
-          onChange={(v) => {
-            if (!v) return;
-            const nextSub = SUBCATEGORIES_BY_CATEGORY[v]?.[0];
-            onChange({ category: v, subcategory: nextSub });
-          }}
-        />
-      </Section>
+        <Field label="Category">
+          <ChipRow
+            options={ALL_CATEGORIES}
+            value={draft.category}
+            labels={CATEGORY_LABEL}
+            onChange={(v) => {
+              if (!v) return;
+              const nextSub = SUBCATEGORIES_BY_CATEGORY[v]?.[0];
+              onChange({ category: v, subcategory: nextSub });
+            }}
+          />
+        </Field>
 
-      <Section label="Type">
-        <ChipRow options={subcats} value={draft.subcategory} labels={SUBCATEGORY_LABEL} onChange={(v) => v && onChange({ subcategory: v })} />
-      </Section>
+        <Field label="Type">
+          <ChipRow options={subcats} value={draft.subcategory} labels={SUBCATEGORY_LABEL} onChange={(v) => v && onChange({ subcategory: v })} />
+        </Field>
 
-      <Section label="Colors (comma separated)">
-        <TextInput
-          value={draft.colorsText}
-          onChangeText={(colorsText) => onChange({ colorsText })}
-          placeholder="e.g. black, white"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-          autoCapitalize="none"
-        />
-      </Section>
+        <View style={{ marginBottom: 0 }}>
+          <Field label="Colors">
+            <TextInput
+              value={draft.colorsText}
+              onChangeText={(colorsText) => onChange({ colorsText })}
+              placeholder="e.g. black, white — comma separated"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              autoCapitalize="none"
+            />
+          </Field>
+        </View>
+      </Card>
 
-      <Section label="Formality">
-        <ChipRow options={ALL_FORMALITIES} value={draft.formality} labels={{ athletic: 'Athletic', casual: 'Casual', 'smart-casual': 'Smart Casual', formal: 'Formal' }} onChange={(v) => v && onChange({ formality: v })} />
-      </Section>
+      <Card>
+        <Field label="Formality">
+          <ChipRow options={ALL_FORMALITIES} value={draft.formality} labels={FORMALITY_LABEL} onChange={(v) => v && onChange({ formality: v })} />
+        </Field>
 
-      <Section label="Fit">
-        <ChipRow options={FITS} value={draft.fit} labels={FIT_LABEL} onChange={(v) => onChange({ fit: v })} clearable />
-      </Section>
+        <Field label="Fit">
+          <ChipRow options={FITS} value={draft.fit} labels={FIT_LABEL} onChange={(v) => onChange({ fit: v })} clearable />
+        </Field>
 
-      <Section label="Sleeve">
-        <ChipRow options={SLEEVES} value={draft.sleeve} labels={SLEEVE_LABEL} onChange={(v) => onChange({ sleeve: v })} clearable />
-      </Section>
+        <Field label="Sleeve">
+          <ChipRow options={SLEEVES} value={draft.sleeve} labels={SLEEVE_LABEL} onChange={(v) => onChange({ sleeve: v })} clearable />
+        </Field>
 
-      <Section label="Season">
-        <ChipRow options={SEASONS} value={draft.season} labels={SEASON_LABEL} onChange={(v) => onChange({ season: v ?? 'all' })} />
-      </Section>
+        <View style={{ marginBottom: 0 }}>
+          <Field label="Season">
+            <ChipRow options={SEASONS} value={draft.season} labels={SEASON_LABEL} onChange={(v) => onChange({ season: v ?? 'all' })} />
+          </Field>
+        </View>
+      </Card>
 
-      <Section label="Brand (optional)">
-        <TextInput
-          value={draft.brand ?? ''}
-          onChangeText={(brand) => onChange({ brand })}
-          placeholder="e.g. Calvin Klein"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-        />
-      </Section>
+      <Card>
+        <Pressable style={styles.moreToggle} onPress={() => setShowMore((s) => !s)}>
+          <Text style={styles.moreToggleText}>More details</Text>
+          <Icon name={showMore ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+        </Pressable>
 
-      <Section label="Pattern / graphic (optional)">
-        <TextInput
-          value={draft.pattern ?? ''}
-          onChangeText={(pattern) => onChange({ pattern })}
-          placeholder="e.g. Star Wars graphic"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-        />
-      </Section>
+        {showMore ? (
+          <View style={{ marginTop: spacing.md }}>
+            <Field label="Brand (optional)">
+              <TextInput
+                value={draft.brand ?? ''}
+                onChangeText={(brand) => onChange({ brand })}
+                placeholder="e.g. Calvin Klein"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+              />
+            </Field>
 
-      <Section label="Notes (optional)">
-        <TextInput
-          value={draft.notes ?? ''}
-          onChangeText={(notes) => onChange({ notes })}
-          placeholder="Anything else worth remembering"
-          placeholderTextColor={colors.textMuted}
-          style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-          multiline
-        />
-      </Section>
+            <Field label="Pattern / graphic (optional)">
+              <TextInput
+                value={draft.pattern ?? ''}
+                onChangeText={(pattern) => onChange({ pattern })}
+                placeholder="e.g. Star Wars graphic"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+              />
+            </Field>
+
+            <View style={{ marginBottom: 0 }}>
+              <Field label="Notes (optional)">
+                <TextInput
+                  value={draft.notes ?? ''}
+                  onChangeText={(notes) => onChange({ notes })}
+                  placeholder="Anything else worth remembering"
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
+                  multiline
+                />
+              </Field>
+            </View>
+          </View>
+        ) : null}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: spacing.lg },
+  field: { marginBottom: spacing.lg },
   label: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
   input: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     fontSize: 15,
+    color: colors.text,
+  },
+  moreToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  moreToggleText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.text,
   },
 });

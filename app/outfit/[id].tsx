@@ -1,10 +1,14 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
+import { ClothingImage } from '@/src/components/ClothingImage';
 import { EmptyState } from '@/src/components/EmptyState';
 import { OutfitItemList } from '@/src/components/OutfitItemRow';
+import { SectionHeader } from '@/src/components/SectionHeader';
 import { TierBadge } from '@/src/components/TierBadge';
+import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
@@ -22,7 +26,7 @@ export default function OutfitDetailScreen() {
   const outfit = outfits.find((o) => o.id === id);
 
   if (!outfit) {
-    return <EmptyState icon="clock.fill" title="Outfit not found" subtitle="It may have been deleted." />;
+    return <EmptyState icon="time-outline" title="Outfit not found" subtitle="It may have been deleted." />;
   }
 
   const currentOutfit = outfit;
@@ -52,7 +56,14 @@ export default function OutfitDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
-      {outfit.photoUri ? <Image source={{ uri: outfit.photoUri }} style={styles.photo} contentFit="cover" /> : null}
+      {outfit.photoUri ? (
+        <ClothingImage
+          uri={outfit.photoUri}
+          fallbackIcon={outfitItems[0] ? CATEGORY_ICON[outfitItems[0].category] : 'shirt-outline'}
+          style={styles.photo}
+          iconSize={32}
+        />
+      ) : null}
 
       <View style={styles.headerCard}>
         {outfit.tier ? <TierBadge tier={outfit.tier} size="lg" /> : null}
@@ -65,52 +76,33 @@ export default function OutfitDetailScreen() {
         </View>
       </View>
 
-      {outfit.tierReasoning ? <Text style={styles.reasoning}>{outfit.tierReasoning}</Text> : null}
+      {outfit.tierReasoning ? (
+        <Card style={{ marginBottom: spacing.lg }}>
+          <Text style={styles.reasoning}>{outfit.tierReasoning}</Text>
+        </Card>
+      ) : null}
 
-      <Text style={styles.sectionTitle}>Items</Text>
+      <SectionHeader title="Items" />
       {outfitItems.length ? (
         <OutfitItemList items={outfitItems} />
       ) : (
         <Text style={styles.helper}>No items were tagged for this outfit.</Text>
       )}
 
-      {!outfit.wornOn ? (
-        <Pressable style={styles.wearButton} onPress={markAsWornToday}>
-          <Text style={styles.wearButtonText}>Mark as worn today</Text>
-        </Pressable>
-      ) : null}
-
-      <Pressable style={styles.deleteButton} onPress={confirmDelete}>
-        <Text style={styles.deleteButtonText}>Delete outfit</Text>
-      </Pressable>
+      <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
+        {!outfit.wornOn ? <Button label="Mark as worn today" size="lg" onPress={markAsWornToday} fullWidth /> : null}
+        <Button label="Delete outfit" variant="danger" onPress={confirmDelete} fullWidth />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  photo: { width: '100%', height: 320, borderRadius: radii.lg, backgroundColor: colors.card, marginBottom: spacing.md },
+  photo: { width: '100%', height: 320, borderRadius: radii.lg, marginBottom: spacing.md },
   headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
   date: { fontSize: 18, fontWeight: '800', color: colors.text },
   source: { fontSize: 12, color: colors.textMuted, marginTop: 2, textTransform: 'uppercase', fontWeight: '700' },
-  reasoning: { fontSize: 14, color: colors.text, lineHeight: 20, marginBottom: spacing.lg },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  reasoning: { fontSize: 14, color: colors.text, lineHeight: 20 },
   helper: { fontSize: 13, color: colors.textMuted },
-  wearButton: {
-    backgroundColor: colors.success,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-  wearButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  deleteButtonText: { color: colors.danger, fontWeight: '700', fontSize: 15 },
 });

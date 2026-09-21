@@ -2,8 +2,10 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
 import { Icon } from '@/src/components/Icon';
 import { ItemPickerSheet } from '@/src/components/ItemPickerSheet';
 import { OutfitItemList } from '@/src/components/OutfitItemRow';
@@ -116,47 +118,48 @@ export default function EvaluateScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
       {!photo ? (
         <View style={styles.pickRow}>
           <Pressable style={styles.pickButton} onPress={() => pickPhoto(true)}>
-            <Icon name="camera.fill" size={26} color={colors.accent} />
+            <Icon name="camera-outline" size={26} color={colors.accent} />
             <Text style={styles.pickButtonText}>Take Photo</Text>
           </Pressable>
           <Pressable style={styles.pickButton} onPress={() => pickPhoto(false)}>
-            <Icon name="photo.on.rectangle" size={26} color={colors.accent} />
+            <Icon name="images-outline" size={26} color={colors.accent} />
             <Text style={styles.pickButtonText}>Choose Photo</Text>
           </Pressable>
         </View>
       ) : (
         <>
-          <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
+          <Card padded={false} style={{ overflow: 'hidden' }}>
+            <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
+          </Card>
           <Pressable style={styles.retake} onPress={() => setPhoto(null)}>
             <Text style={styles.retakeText}>Retake / choose a different photo</Text>
           </Pressable>
 
           <Pressable style={styles.tagButton} onPress={() => setPickerOpen(true)}>
-            <Text style={styles.tagButtonText}>
-              {selectedItems.length ? `Tagged: ${selectedItems.map((i) => i.name).join(', ')}` : 'Tag items you are wearing'}
+            <Icon name="pricetag-outline" size={16} color={colors.textMuted} />
+            <Text style={styles.tagButtonText} numberOfLines={1}>
+              {selectedItems.length ? selectedItems.map((i) => i.name).join(', ') : 'Tag items you are wearing (optional)'}
             </Text>
           </Pressable>
 
-          <Pressable style={styles.evaluateButton} onPress={handleEvaluate} disabled={evaluating}>
-            {evaluating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.evaluateButtonText}>Evaluate outfit</Text>}
-          </Pressable>
+          <View style={{ marginTop: spacing.md }}>
+            <Button label="Evaluate outfit" size="lg" icon="sparkles" onPress={handleEvaluate} loading={evaluating} fullWidth />
+          </View>
 
           {result ? (
-            <View style={styles.resultCard}>
+            <Card style={styles.resultCard} elevated>
               <View style={styles.resultHeader}>
                 <TierBadge tier={result.tier} size="lg" />
                 <Text style={styles.resultSource}>{result.aiEvaluated ? 'AI evaluation' : 'Local scoring'}</Text>
               </View>
               <Text style={styles.reasoning}>{result.reasoning}</Text>
               {selectedItems.length ? <OutfitItemList items={selectedItems} /> : null}
-              <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-                {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>Save to history</Text>}
-              </Pressable>
-            </View>
+              <Button label="Save to history" onPress={handleSave} loading={saving} fullWidth />
+            </Card>
           ) : null}
         </>
       )}
@@ -187,43 +190,26 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   pickButtonText: { fontSize: 14, fontWeight: '700', color: colors.text },
-  photo: { width: '100%', height: 380, borderRadius: radii.lg, backgroundColor: colors.card },
+  photo: { width: '100%', height: 380, backgroundColor: colors.cardMuted },
   retake: { alignItems: 'center', marginTop: spacing.sm },
   retakeText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   tagButton: {
     marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.md,
   },
-  tagButtonText: { fontSize: 14, color: colors.textMuted },
-  evaluateButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  evaluateButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+  tagButtonText: { flex: 1, fontSize: 14, color: colors.textMuted },
   resultCard: {
     marginTop: spacing.xl,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
     gap: spacing.md,
   },
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   resultSource: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   reasoning: { fontSize: 14, color: colors.text, lineHeight: 20 },
-  saveButton: {
-    backgroundColor: colors.success,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
 });

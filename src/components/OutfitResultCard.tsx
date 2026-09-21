@@ -1,8 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { OutfitItemRow } from '@/src/components/OutfitItemRow';
+import { Button } from '@/src/components/Button';
+import { Card } from '@/src/components/Card';
+import { Icon } from '@/src/components/Icon';
+import { OutfitItemRow, OutfitNameLine } from '@/src/components/OutfitItemRow';
 import { TierBadge } from '@/src/components/TierBadge';
-import { colors, radii, spacing } from '@/src/constants/theme';
+import { colors, spacing } from '@/src/constants/theme';
 import type { ClothingItem, GeneratedOutfit } from '@/src/types';
 
 export function OutfitResultCard({
@@ -10,19 +13,30 @@ export function OutfitResultCard({
   items,
   onWearToday,
   onSave,
+  onRegenerate,
 }: {
   outfit: GeneratedOutfit;
   items: ClothingItem[];
   onWearToday: () => void;
   onSave: () => void;
+  onRegenerate?: () => void;
 }) {
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.header}>
         <TierBadge tier={outfit.tier} size="md" />
         <Text style={styles.score}>{outfit.score}/100</Text>
+        <View style={{ flex: 1 }} />
+        {onRegenerate ? (
+          <Pressable onPress={onRegenerate} hitSlop={8} style={styles.regenerateButton}>
+            <Icon name="shuffle-outline" size={18} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
       </View>
+
+      <OutfitNameLine items={items} />
       <OutfitItemRow items={items} />
+
       <View style={styles.breakdown}>
         {outfit.breakdown.map((line, i) => (
           <Text key={i} style={styles.breakdownLine}>
@@ -30,25 +44,21 @@ export function OutfitResultCard({
           </Text>
         ))}
       </View>
+
       <View style={styles.actions}>
-        <Pressable style={[styles.button, styles.buttonSecondary]} onPress={onSave}>
-          <Text style={styles.buttonSecondaryText}>Save for later</Text>
-        </Pressable>
-        <Pressable style={[styles.button, styles.buttonPrimary]} onPress={onWearToday}>
-          <Text style={styles.buttonPrimaryText}>Wear today</Text>
-        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Button label="Save for later" variant="secondary" onPress={onSave} fullWidth />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button label="Wear today" variant="primary" onPress={onWearToday} fullWidth />
+        </View>
       </View>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
@@ -62,6 +72,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '600',
   },
+  regenerateButton: {
+    padding: spacing.xs,
+  },
   breakdown: {
     marginTop: spacing.xs,
   },
@@ -74,27 +87,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.xs,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radii.md,
-    alignItems: 'center',
-  },
-  buttonPrimary: {
-    backgroundColor: colors.accent,
-  },
-  buttonPrimaryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.accentSoft,
-  },
-  buttonSecondaryText: {
-    color: colors.accent,
-    fontWeight: '700',
-    fontSize: 14,
   },
 });

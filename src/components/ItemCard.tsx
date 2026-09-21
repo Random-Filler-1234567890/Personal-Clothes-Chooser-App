@@ -1,6 +1,6 @@
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ClothingImage } from '@/src/components/ClothingImage';
 import { Icon } from '@/src/components/Icon';
 import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
@@ -9,21 +9,17 @@ import { formatRelative } from '@/src/utils/date';
 
 export function ItemCard({ item, onPress, width }: { item: ClothingItem; onPress: () => void; width: number }) {
   return (
-    <Pressable onPress={onPress} style={[styles.card, { width }]}>
-      <View style={[styles.thumb, { width, height: width }]}>
-        {item.imageUri ? (
-          <Image source={{ uri: item.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        ) : (
-          <View style={styles.placeholder}>
-            <Icon name={CATEGORY_ICON[item.category]} size={28} color={colors.textMuted} />
-          </View>
-        )}
-        {item.favorite ? (
-          <View style={styles.favoriteBadge}>
-            <Icon name="star.fill" size={12} color="#FFFFFF" />
-          </View>
-        ) : null}
-      </View>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, { width }, pressed && styles.pressed]}>
+      <ClothingImage
+        uri={item.imageUri}
+        fallbackIcon={CATEGORY_ICON[item.category]}
+        style={[styles.thumb, { width, height: width }]}
+      />
+      {item.favorite ? (
+        <View style={styles.favoriteBadge}>
+          <Icon name="star" size={11} color="#FFFFFF" />
+        </View>
+      ) : null}
       <Text numberOfLines={2} style={styles.name}>
         {item.name}
       </Text>
@@ -36,17 +32,13 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.lg,
   },
+  pressed: {
+    opacity: 0.7,
+  },
   thumb: {
     borderRadius: radii.md,
-    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   favoriteBadge: {
     position: 'absolute',
@@ -54,8 +46,8 @@ const styles = StyleSheet.create({
     right: 6,
     backgroundColor: colors.accent,
     borderRadius: radii.pill,
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },

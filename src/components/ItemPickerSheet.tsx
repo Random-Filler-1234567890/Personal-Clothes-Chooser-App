@@ -1,12 +1,13 @@
-import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Chip } from '@/src/components/Chip';
+import { ClothingImage } from '@/src/components/ClothingImage';
 import { Icon } from '@/src/components/Icon';
-import { CATEGORY_ICON } from '@/src/constants/categories';
+import { ALL_CATEGORIES, CATEGORY_ICON, CATEGORY_LABEL } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
-import type { ClothingItem } from '@/src/types';
+import type { Category, ClothingItem } from '@/src/types';
 
 interface Props {
   visible: boolean;
@@ -20,14 +21,19 @@ interface Props {
 
 export function ItemPickerSheet({ visible, title = 'Select items', items, selectedIds, multiple = true, onClose, onChange }: Props) {
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<Category | 'all'>('all');
+
+  const availableCategories = useMemo(
+    () => ALL_CATEGORIES.filter((c) => items.some((i) => i.category === c)),
+    [items]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (i) => i.name.toLowerCase().includes(q) || i.colors.some((c) => c.toLowerCase().includes(q))
-    );
-  }, [items, query]);
+    return items
+      .filter((i) => category === 'all' || i.category === category)
+      .filter((i) => !q || i.name.toLowerCase().includes(q) || i.colors.some((c) => c.toLowerCase().includes(q)));
+  }, [items, query, category]);
 
   function toggle(id: string) {
     if (multiple) {
@@ -54,28 +60,37 @@ export function ItemPickerSheet({ visible, title = 'Select items', items, select
           placeholderTextColor={colors.textMuted}
           style={styles.search}
         />
+        <View style={styles.filterWrap}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={['all', ...availableCategories] as (Category | 'all')[]}
+            keyExtractor={(c) => c}
+            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingRight: spacing.lg }}
+            renderItem={({ item: c }) => (
+              <Chip
+                label={c === 'all' ? 'All' : CATEGORY_LABEL[c]}
+                selected={category === c}
+                onPress={() => setCategory(c)}
+              />
+            )}
+          />
+        </View>
         <FlatList
+          style={{ flex: 1 }}
           data={filtered}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm }}
           renderItem={({ item }) => {
             const selected = selectedIds.includes(item.id);
             return (
               <Pressable style={[styles.row, selected && styles.rowSelected]} onPress={() => toggle(item.id)}>
-                <View style={styles.thumb}>
-                  {item.imageUri ? (
-                    <Image source={{ uri: item.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-                  ) : (
-                    <View style={styles.placeholder}>
-                      <Icon name={CATEGORY_ICON[item.category]} size={18} color={colors.textMuted} />
-                    </View>
-                  )}
-                </View>
+                <ClothingImage uri={item.imageUri} fallbackIcon={CATEGORY_ICON[item.category]} iconSize={16} style={styles.thumb} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
                   <Text style={styles.meta}>{item.colors.join(', ')}</Text>
                 </View>
-                {selected ? <Icon name="checkmark.circle.fill" size={22} color={colors.accent} /> : null}
+                {selected ? <Icon name="checkmark-circle" size={22} color={colors.accent} /> : null}
               </Pressable>
             );
           }}
@@ -108,6 +123,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  filterWrap: { marginTop: spacing.md, flexShrink: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -127,10 +143,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.sm,
-    overflow: 'hidden',
-    backgroundColor: colors.bg,
   },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 14, fontWeight: '600', color: colors.text },
   meta: { fontSize: 12, color: colors.textMuted },
 });
