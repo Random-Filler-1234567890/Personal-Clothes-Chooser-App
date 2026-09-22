@@ -67,6 +67,8 @@ export interface ClothingItem {
   createdAt: string;
   lastWornAt?: string;
   wearCount: number;
+  /** How many identical physical copies you own (plain black tee x5, etc). Defaults to 1. */
+  quantity?: number;
 }
 
 export type NewClothingItem = Omit<
@@ -83,6 +85,8 @@ export interface Outfit {
   tier?: Tier;
   score?: number;
   tierReasoning?: string;
+  tierPros?: string[];
+  tierCons?: string[];
   aiEvaluated: boolean;
   photoUri?: string;
   createdAt: string;
@@ -107,11 +111,15 @@ export interface GeneratedOutfit {
   itemIds: string[];
   score: number;
   tier: Tier;
-  breakdown: string[];
+  pros: string[];
+  cons: string[];
 }
+
+export type SockPreference = 'random' | 'white' | 'black';
 
 export interface AppSettings {
   geminiApiKey?: string;
   preferPants: boolean;
   useAiEvaluation: boolean;
+  sockPreference: SockPreference;
 }

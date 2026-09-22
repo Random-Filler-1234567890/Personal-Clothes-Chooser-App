@@ -12,10 +12,12 @@ import { SectionHeader } from '@/src/components/SectionHeader';
 import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, spacing } from '@/src/constants/theme';
 import { generateOutfits } from '@/src/engine/outfitEngine';
+import { evaluateOutfitText, GeminiError, type OutfitNarrative } from '@/src/services/gemini';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
 import type { GeneratedOutfit } from '@/src/types';
+import { showAlert } from '@/src/utils/alert';
 import { daysSince, formatRelative, todayIso } from '@/src/utils/date';
 
 type Mood = 'good' | 'random' | 'bad';
@@ -35,9 +37,13 @@ export default function HomeScreen() {
   const outfits = useOutfitStore((s) => s.outfits);
   const addOutfit = useOutfitStore((s) => s.addOutfit);
   const preferPants = useSettingsStore((s) => s.preferPants);
+  const sockPreference = useSettingsStore((s) => s.sockPreference);
+  const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
 
   const [outfit, setOutfit] = useState<GeneratedOutfit | null>(null);
   const [mood, setMood] = useState<Mood | null>(null);
+  const [aiNarrative, setAiNarrative] = useState<OutfitNarrative | null>(null);
+  const [askingAi, setAskingAi] = useState(false);
 
   const activeItems = useMemo(() => items.filter((i) => !i.archived), [items]);
 
@@ -56,12 +62,27 @@ export default function HomeScreen() {
   }, [outfits]);
 
   function roll(nextMood: Mood) {
-    const results = generateOutfits(items, { quality: nextMood, count: 1 }, preferPants);
+    const results = generateOutfits(items, { quality: nextMood, count: 1 }, preferPants, sockPreference);
     setMood(nextMood);
     setOutfit(results[0] ?? null);
+    setAiNarrative(null);
   }
 
   const outfitItems = outfit ? outfit.itemIds.map((id) => items.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i) : [];
+
+  async function handleAskAi() {
+    if (!geminiApiKey || !outfit) return;
+    setAskingAi(true);
+    try {
+      const narrative = await evaluateOutfitText(geminiApiKey, outfitItems, outfit.tier);
+      setAiNarrative(narrative);
+    } catch (err) {
+      const message = err instanceof GeminiError ? err.message : 'Could not get an AI opinion on this outfit.';
+      showAlert('AI evaluation failed', message);
+    } finally {
+      setAskingAi(false);
+    }
+  }
 
   async function handleWearToday() {
     if (!outfit) return;
@@ -71,7 +92,8 @@ export default function HomeScreen() {
         itemIds: outfit.itemIds,
         tier: outfit.tier,
         score: outfit.score,
-        tierReasoning: outfit.breakdown.join(' '),
+        tierPros: outfit.pros,
+        tierCons: outfit.cons,
         aiEvaluated: false,
         wornOn: todayIso(),
         source: 'generated',
@@ -86,12 +108,14 @@ export default function HomeScreen() {
       itemIds: outfit.itemIds,
       tier: outfit.tier,
       score: outfit.score,
-      tierReasoning: outfit.breakdown.join(' '),
+      tierPros: outfit.pros,
+      tierCons: outfit.cons,
       aiEvaluated: false,
       source: 'generated',
     });
     setOutfit(null);
     setMood(null);
+    setAiNarrative(null);
   }
 
   const readyToRoll = activeItems.length > 0;
@@ -134,6 +158,9 @@ export default function HomeScreen() {
             onWearToday={handleWearToday}
             onSave={handleSaveForLater}
             onRegenerate={() => roll(mood ?? 'good')}
+            onAskAi={geminiApiKey ? handleAskAi : undefined}
+            aiNarrative={aiNarrative}
+            askingAi={askingAi}
           />
           <Button
             label="Never mind, start over"
@@ -141,6 +168,7 @@ export default function HomeScreen() {
             onPress={() => {
               setOutfit(null);
               setMood(null);
+              setAiNarrative(null);
             }}
           />
         </View>

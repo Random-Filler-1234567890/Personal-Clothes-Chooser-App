@@ -1,11 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
 import { Icon } from '@/src/components/Icon';
 import { OutfitItemRow, OutfitNameLine } from '@/src/components/OutfitItemRow';
+import { ProsConsList } from '@/src/components/ProsConsList';
 import { TierBadge } from '@/src/components/TierBadge';
 import { colors, spacing } from '@/src/constants/theme';
+import type { OutfitNarrative } from '@/src/services/gemini';
 import type { ClothingItem, GeneratedOutfit } from '@/src/types';
 
 export function OutfitResultCard({
@@ -14,12 +16,18 @@ export function OutfitResultCard({
   onWearToday,
   onSave,
   onRegenerate,
+  onAskAi,
+  aiNarrative,
+  askingAi,
 }: {
   outfit: GeneratedOutfit;
   items: ClothingItem[];
   onWearToday: () => void;
   onSave: () => void;
   onRegenerate?: () => void;
+  onAskAi?: () => void;
+  aiNarrative?: OutfitNarrative | null;
+  askingAi?: boolean;
 }) {
   return (
     <Card style={styles.card}>
@@ -38,12 +46,32 @@ export function OutfitResultCard({
       <OutfitItemRow items={items} />
 
       <View style={styles.breakdown}>
-        {outfit.breakdown.map((line, i) => (
-          <Text key={i} style={styles.breakdownLine}>
-            •  {line}
-          </Text>
-        ))}
+        <ProsConsList pros={outfit.pros} cons={outfit.cons} />
       </View>
+
+      {onAskAi ? (
+        aiNarrative ? (
+          <View style={styles.aiSection}>
+            <View style={styles.aiHeader}>
+              <Icon name="sparkles" size={13} color={colors.accent} />
+              <Text style={styles.aiHeaderText}>AI's take</Text>
+            </View>
+            <Text style={styles.aiVerdict}>{aiNarrative.verdict}</Text>
+            <ProsConsList pros={aiNarrative.pros} cons={aiNarrative.cons} />
+          </View>
+        ) : (
+          <Pressable style={styles.askAiButton} onPress={onAskAi} disabled={askingAi}>
+            {askingAi ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <>
+                <Icon name="sparkles-outline" size={14} color={colors.accent} />
+                <Text style={styles.askAiText}>Ask AI about this outfit</Text>
+              </>
+            )}
+          </Pressable>
+        )
+      ) : null}
 
       <View style={styles.actions}>
         <View style={{ flex: 1 }}>
@@ -78,9 +106,41 @@ const styles = StyleSheet.create({
   breakdown: {
     marginTop: spacing.xs,
   },
-  breakdownLine: {
+  askAiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.xs,
+  },
+  askAiText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  aiSection: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.xs,
+  },
+  aiHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiHeaderText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: colors.accent,
+    textTransform: 'uppercase',
+  },
+  aiVerdict: {
     fontSize: 12.5,
     color: colors.textMuted,
+    fontStyle: 'italic',
     marginBottom: 2,
   },
   actions: {

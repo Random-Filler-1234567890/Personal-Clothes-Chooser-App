@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
@@ -13,6 +13,7 @@ import { GeminiError, identifyClothingItem } from '@/src/services/gemini';
 import { persistImage } from '@/src/services/imageStorage';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
+import { showAlert } from '@/src/utils/alert';
 
 const INITIAL_DRAFT: ItemDraft = {
   name: '',
@@ -21,6 +22,7 @@ const INITIAL_DRAFT: ItemDraft = {
   colorsText: '',
   formality: 'casual',
   season: 'all',
+  quantity: 1,
 };
 
 export default function NewItemScreen() {
@@ -42,7 +44,7 @@ export default function NewItemScreen() {
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', `Please allow ${fromCamera ? 'camera' : 'photo library'} access to continue.`);
+      showAlert('Permission needed', `Please allow ${fromCamera ? 'camera' : 'photo library'} access to continue.`);
       return;
     }
     const pickerResult = fromCamera
@@ -50,33 +52,42 @@ export default function NewItemScreen() {
       : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
     if (pickerResult.canceled || !pickerResult.assets?.[0]) return;
     const asset = pickerResult.assets[0];
-    setPhoto({ uri: asset.uri, base64: asset.base64 ?? null, mimeType: asset.mimeType ?? 'image/jpeg' });
+    const picked = { uri: asset.uri, base64: asset.base64 ?? null, mimeType: asset.mimeType ?? 'image/jpeg' };
+    setPhoto(picked);
+
+    // Auto-categorize right away when AI is available, so taking the photo is
+    // the whole interaction — the button below is just for retrying.
+    if (geminiApiKey && picked.base64) {
+      handleIdentify(picked);
+    }
   }
 
-  async function handleIdentify() {
-    if (!photo?.base64) return;
+  async function handleIdentify(photoOverride?: { uri: string; base64: string | null; mimeType: string }) {
+    const target = photoOverride ?? photo;
+    if (!target?.base64) return;
     if (!geminiApiKey) {
-      Alert.alert('Add an API key', 'Add a Gemini API key in Settings to auto-identify clothing from photos.');
+      showAlert('Add an API key', 'Add a Gemini API key in Settings to auto-identify clothing from photos.');
       return;
     }
     setIdentifying(true);
     try {
-      const identified = await identifyClothingItem(geminiApiKey, { base64: photo.base64, mimeType: photo.mimeType });
-      patchDraft({
-        name: identified.name ?? draft.name,
-        category: identified.category ?? draft.category,
-        subcategory: identified.subcategory ?? draft.subcategory,
-        colorsText: identified.colors?.join(', ') ?? draft.colorsText,
-        formality: identified.formality ?? draft.formality,
+      const identified = await identifyClothingItem(geminiApiKey, { base64: target.base64, mimeType: target.mimeType });
+      setDraft((d) => ({
+        ...d,
+        name: identified.name,
+        category: identified.category,
+        subcategory: identified.subcategory,
+        colorsText: identified.colors?.length ? identified.colors.join(', ') : d.colorsText,
+        formality: identified.formality,
         fit: identified.fit,
         sleeve: identified.sleeve,
-        season: identified.season ?? draft.season,
+        season: identified.season ?? d.season,
         brand: identified.brand,
         pattern: identified.pattern,
-      });
+      }));
     } catch (err) {
       const message = err instanceof GeminiError ? err.message : 'Could not identify this item automatically.';
-      Alert.alert('AI identification failed', message);
+      showAlert('AI identification failed', message);
     } finally {
       setIdentifying(false);
     }
@@ -104,11 +115,12 @@ export default function NewItemScreen() {
         brand: draft.brand?.trim() || undefined,
         pattern: draft.pattern?.trim() || undefined,
         notes: draft.notes?.trim() || undefined,
+        quantity: draft.quantity,
         imageUri,
       });
       router.back();
     } catch {
-      Alert.alert('Something went wrong', 'Could not save this item. Please try again.');
+      showAlert('Something went wrong', 'Could not save this item. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -123,7 +135,7 @@ export default function NewItemScreen() {
             <Text style={styles.retakeText}>Change photo</Text>
           </Pressable>
           {geminiApiKey ? (
-            <Pressable style={styles.identifyButton} onPress={handleIdentify} disabled={identifying}>
+            <Pressable style={styles.identifyButton} onPress={() => handleIdentify()} disabled={identifying}>
               {identifying ? (
                 <ActivityIndicator color={colors.accent} />
               ) : (

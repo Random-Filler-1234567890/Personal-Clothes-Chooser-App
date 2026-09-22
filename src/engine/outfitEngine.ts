@@ -1,7 +1,15 @@
-import { FORMALITY_ORDER } from '@/src/constants/categories';
-import { colorMatches, colorPairScore } from '@/src/engine/colorCompat';
+import { FORMALITY_LABEL, FORMALITY_ORDER } from '@/src/constants/categories';
+import { colorMatches, colorPairScore, tooManyColorsPenalty } from '@/src/engine/colorCompat';
 import { scoreToTier } from '@/src/engine/tierEngine';
-import type { Category, ClothingItem, Formality, GeneratedOutfit, GenerationCriteria, Season } from '@/src/types';
+import type {
+  Category,
+  ClothingItem,
+  Formality,
+  GeneratedOutfit,
+  GenerationCriteria,
+  Season,
+  SockPreference,
+} from '@/src/types';
 import { daysSince } from '@/src/utils/date';
 
 type Pools = Record<Category, ClothingItem[]>;
@@ -72,11 +80,19 @@ function biasedPick(pool: ClothingItem[], mustColors?: string[]): ClothingItem |
   return pickRandom(pool);
 }
 
+function pickSocks(pool: ClothingItem[], preference: SockPreference): ClothingItem | undefined {
+  if (!pool.length) return undefined;
+  if (preference === 'random') return pickRandom(pool);
+  const matches = pool.filter((i) => colorMatches(i.colors, [preference]));
+  return matches.length ? pickRandom(matches) : pickRandom(pool);
+}
+
 function buildCandidate(
   pools: Pools,
   forcedCats: Set<Category>,
   criteria: GenerationCriteria,
-  preferPants: boolean
+  preferPants: boolean,
+  sockPreference: SockPreference
 ): string[] | null {
   const chosen: ClothingItem[] = [];
   const hasShortsHint = !!criteria.restrictCategory?.shorts?.length;
@@ -130,7 +146,7 @@ function buildCandidate(
   chosen.push(shoes);
 
   if (pools.socks.length && (forcedCats.has('socks') || Math.random() < 0.9)) {
-    const socks = biasedPick(pools.socks);
+    const socks = forcedCats.has('socks') ? pools.socks[0] : pickSocks(pools.socks, sockPreference);
     if (socks) chosen.push(socks);
   }
 
@@ -164,28 +180,35 @@ const VISIBLE_CATEGORIES: Category[] = ['top', 'bottom', 'shorts', 'outerwear', 
 export function scoreCandidate(
   items: ClothingItem[],
   criteria: Pick<GenerationCriteria, 'mustIncludeColors' | 'season' | 'unwornForDays'>
-): { score: number; breakdown: string[] } {
-  const breakdown: string[] = [];
+): { score: number; pros: string[]; cons: string[] } {
+  const pros: string[] = [];
+  const cons: string[] = [];
   let score = 50;
 
+  // --- Formality coherence ---
   const levels = items.map((i) => FORMALITY_ORDER[i.formality]);
-  const range = Math.max(...levels) - Math.min(...levels);
+  const minLevel = Math.min(...levels);
+  const maxLevel = Math.max(...levels);
+  const range = maxLevel - minLevel;
+  const loFormality = (Object.keys(FORMALITY_ORDER) as Formality[]).find((f) => FORMALITY_ORDER[f] === minLevel)!;
+  const hiFormality = (Object.keys(FORMALITY_ORDER) as Formality[]).find((f) => FORMALITY_ORDER[f] === maxLevel)!;
   if (range === 0) {
-    score += 25;
-    breakdown.push('Formality is fully consistent across the fit.');
+    score += 20;
+    pros.push(`Every piece reads ${FORMALITY_LABEL[loFormality].toLowerCase()} — nothing fights for the wrong occasion.`);
   } else if (range === 1) {
-    score += 14;
-    breakdown.push('Formality mostly matches, with one slightly dressier or more casual piece.');
+    score += 8;
+    pros.push('Formality mostly matches, with one slightly dressier or more relaxed piece.');
   } else if (range === 2) {
-    score -= 16;
-    breakdown.push('Formality is mismatched between pieces.');
+    score -= 18;
+    cons.push(`Mixing ${FORMALITY_LABEL[loFormality].toLowerCase()} and ${FORMALITY_LABEL[hiFormality].toLowerCase()} pieces reads as a mismatched occasion.`);
   } else {
-    score -= 40;
-    breakdown.push('Formality clashes badly — very casual and very formal pieces together.');
+    score -= 42;
+    cons.push(`${FORMALITY_LABEL[loFormality]} and ${FORMALITY_LABEL[hiFormality]} pieces together is a genuine clash — pick one lane.`);
   }
 
+  // --- Color harmony ---
   const visible = items.filter((i) => VISIBLE_CATEGORIES.includes(i.category));
-  const colorList = visible.flatMap((i) => (i.colors.length ? [i.colors[0]] : []));
+  const colorList = visible.flatMap((i) => i.colors.slice(0, 2));
   let pairSum = 0;
   let pairCount = 0;
   for (let a = 0; a < colorList.length; a++) {
@@ -195,31 +218,46 @@ export function scoreCandidate(
     }
   }
   const avgPair = pairCount ? pairSum / pairCount : 1;
-  score += avgPair * 18;
-  if (avgPair >= 1.5) breakdown.push('Colors coordinate cleanly.');
-  else if (avgPair >= 0.5) breakdown.push('Color pairing is safe.');
-  else if (avgPair >= -0.2) breakdown.push('A couple of colors are a little risky together.');
-  else breakdown.push('Colors are actively clashing.');
+  score += avgPair >= 0 ? avgPair * 14 : avgPair * 22;
 
-  const patternedCount = visible.filter((i) => !!i.pattern).length;
-  if (patternedCount >= 2) {
-    score -= 15;
-    breakdown.push('Multiple busy patterns are competing.');
-  } else if (patternedCount === 1) {
-    score += 2;
-  } else {
-    score += 3;
+  if (avgPair >= 1.3) pros.push('Colors are clearly coordinated.');
+  else if (avgPair >= 0.4) pros.push('Color pairing is safe and easy to wear.');
+  else if (avgPair >= -0.3) cons.push('A couple of colors sit awkwardly next to each other.');
+  else cons.push('Colors are actively clashing — these hues fight instead of working together.');
+
+  const colorCountPenalty = tooManyColorsPenalty(colorList);
+  score += colorCountPenalty;
+  if (colorCountPenalty <= -16) {
+    cons.push('Too many competing colors at once — the eye doesn’t know where to land.');
+  } else if (colorCountPenalty <= -6) {
+    cons.push('A few different colors in play; one more neutral piece would calm it down.');
   }
 
+  // --- Pattern density ---
+  const patternedCount = visible.filter((i) => !!i.pattern).length;
+  if (patternedCount >= 2) {
+    score -= 18;
+    cons.push(`${patternedCount} busy graphics/patterns are competing for attention at once.`);
+  } else if (patternedCount === 1) {
+    score += 1;
+  } else {
+    score += 2;
+    pros.push('Clean, uncluttered silhouette with no competing patterns.');
+  }
+
+  // --- Recency (informational only — doesn't move the fashion score) ---
   const daysList = items.map((i) => Math.min(daysSince(i.lastWornAt), 45));
   const avgDays = daysList.reduce((a, b) => a + b, 0) / (daysList.length || 1);
-  if (avgDays > 20) breakdown.push("Brings back pieces you haven't worn in a while.");
+  if (avgDays > 20) pros.push("Brings back pieces you haven't worn in a while.");
 
+  // --- Season fit ---
   if (criteria.season && criteria.season !== 'all') {
     const mismatched = visible.filter((i) => i.season && i.season !== 'all' && i.season !== criteria.season);
     if (mismatched.length) {
-      score -= mismatched.length * 10;
-      breakdown.push('Some pieces fight the requested weather.');
+      score -= mismatched.length * 12;
+      cons.push(`${mismatched.length} piece${mismatched.length > 1 ? 's' : ''} fight${mismatched.length > 1 ? '' : 's'} the ${criteria.season} weather you asked for.`);
+    } else {
+      pros.push(`Every piece fits ${criteria.season} weather.`);
     }
   }
 
@@ -239,7 +277,10 @@ export function scoreCandidate(
   score += Math.random() * 6 - 3;
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  return { score, breakdown };
+  if (!pros.length) pros.push('Nothing offensive here, but nothing elevated either.');
+  if (!cons.length) cons.push('No real weaknesses spotted.');
+
+  return { score, pros, cons };
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -251,7 +292,12 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-export function generateOutfits(closet: ClothingItem[], criteria: GenerationCriteria, preferPants: boolean): GeneratedOutfit[] {
+export function generateOutfits(
+  closet: ClothingItem[],
+  criteria: GenerationCriteria,
+  preferPants: boolean,
+  sockPreference: SockPreference = 'random'
+): GeneratedOutfit[] {
   const { pools, forcedCats } = buildPools(closet, criteria);
   const hasBottomSlot = pools.bottom.length > 0 || pools.shorts.length > 0;
   if (!pools.top.length || !hasBottomSlot || !pools.shoes.length) {
@@ -263,15 +309,15 @@ export function generateOutfits(closet: ClothingItem[], criteria: GenerationCrit
   const maxAttempts = 500;
 
   for (let i = 0; i < maxAttempts && candidates.length < 80; i++) {
-    const itemIds = buildCandidate(pools, forcedCats, criteria, preferPants);
+    const itemIds = buildCandidate(pools, forcedCats, criteria, preferPants, sockPreference);
     if (!itemIds) continue;
     const key = [...itemIds].sort().join(',');
     if (seen.has(key)) continue;
     seen.add(key);
 
     const items = itemIds.map((id) => closet.find((c) => c.id === id)).filter((i): i is ClothingItem => !!i);
-    const { score, breakdown } = scoreCandidate(items, criteria);
-    candidates.push({ itemIds, score, tier: scoreToTier(score), breakdown });
+    const { score, pros, cons } = scoreCandidate(items, criteria);
+    candidates.push({ itemIds, score, tier: scoreToTier(score), pros, cons });
   }
 
   let pool: GeneratedOutfit[];

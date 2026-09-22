@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
+import { Chip } from '@/src/components/Chip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { colors, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
+import type { SockPreference } from '@/src/types';
+import { showAlert } from '@/src/utils/alert';
+
+const SOCK_OPTIONS: { value: SockPreference; label: string }[] = [
+  { value: 'random', label: 'Whatever matches' },
+  { value: 'white', label: 'White' },
+  { value: 'black', label: 'Black' },
+];
 
 export default function SettingsScreen() {
   const settings = useSettingsStore();
@@ -19,11 +28,11 @@ export default function SettingsScreen() {
 
   function saveKey() {
     settings.update({ geminiApiKey: keyDraft.trim() || undefined });
-    Alert.alert('Saved', 'Your Gemini API key has been saved on this device.');
+    showAlert('Saved', 'Your Gemini API key has been saved on this device.');
   }
 
   function confirmReset() {
-    Alert.alert(
+    showAlert(
       'Reset wardrobe?',
       'This replaces your current closet with the starter wardrobe list. Photos and edits you made will be lost.',
       [
@@ -83,6 +92,24 @@ export default function SettingsScreen() {
             trackColor={{ true: colors.accent }}
           />
         </View>
+
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.switchLabel}>Socks</Text>
+          <Text style={styles.helper}>
+            Socks are a detail, not a decision — pick a default and outfits will just use it instead of rolling it
+            randomly every time.
+          </Text>
+          <View style={styles.chipRow}>
+            {SOCK_OPTIONS.map((opt) => (
+              <Chip
+                key={opt.value}
+                label={opt.label}
+                selected={settings.sockPreference === opt.value}
+                onPress={() => settings.update({ sockPreference: opt.value })}
+              />
+            ))}
+          </View>
+        </View>
       </Card>
 
       <Card>
@@ -127,6 +154,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

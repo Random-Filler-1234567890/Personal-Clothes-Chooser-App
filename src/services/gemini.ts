@@ -111,8 +111,14 @@ Respond with ONLY a JSON object, no prose, matching exactly this shape:
 
 export interface OutfitEvaluation {
   tier: Tier;
-  reasoning: string;
+  pros: string[];
+  cons: string[];
   matchedItemIds: string[];
+}
+
+function sanitizeStringArray(value: unknown, fallback: string): string[] {
+  const arr = Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
+  return arr.length ? arr : [fallback];
 }
 
 export async function evaluateOutfitPhoto(
@@ -126,7 +132,7 @@ export async function evaluateOutfitPhoto(
     .map((i) => `${i.id}: ${i.name} (${i.category}, ${i.colors.join('/')})`)
     .join('\n');
 
-  const prompt = `You are a witty but genuinely knowledgeable fashion stylist giving an outfit an "AI Overview" style rating, like a tier list from S (best) to F (worst).
+  const prompt = `You are a sharp, honest fashion stylist giving an outfit an "AI Overview" style rating, like a tier list from S (best) to F (worst). Don't be a pushover — most outfits are B/C tier; reserve S/A for genuinely well put-together fits and D/F for real mistakes (clashing colors, mismatched formality, too many competing patterns).
 Look at the photo of the outfit being worn and evaluate it on fit, color coordination, formality consistency, and overall style.
 Here is the person's known wardrobe, as "id: name (category, colors)" — try to match which of these items appear in the photo:
 ${closetSummary || '(no catalogued items available)'}
@@ -134,7 +140,8 @@ ${closetSummary || '(no catalogued items available)'}
 Respond with ONLY a JSON object, no prose, matching exactly this shape:
 {
   "tier": one of "S", "A", "B", "C", "D", "F",
-  "reasoning": a punchy 2-3 sentence explanation of the rating,
+  "pros": array of 1-4 short, specific strings praising what's working (be specific: name colors/pieces, don't just say "looks good"),
+  "cons": array of 1-4 short, specific strings on what's not working or could improve (if truly nothing, a single string saying so is fine),
   "matchedItemIds": array of ids from the wardrobe list above that appear to be worn in the photo (best guess, can be empty)
 }`;
 
@@ -144,9 +151,70 @@ Respond with ONLY a JSON object, no prose, matching exactly this shape:
   }
   return {
     tier: parsed.tier,
-    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+    pros: sanitizeStringArray(parsed.pros, 'Nothing offensive here.'),
+    cons: sanitizeStringArray(parsed.cons, 'No real weaknesses spotted.'),
     matchedItemIds: Array.isArray(parsed.matchedItemIds)
       ? parsed.matchedItemIds.filter((id: unknown) => typeof id === 'string')
       : [],
+  };
+}
+
+export interface OutfitNarrative {
+  pros: string[];
+  cons: string[];
+  verdict: string;
+}
+
+/**
+ * A lighter, text-only counterpart to evaluateOutfitPhoto: no image, just the
+ * item list plus the deterministic tier already computed, for a second-opinion
+ * narrative without a full vision call on every single generated outfit.
+ */
+export async function evaluateOutfitText(
+  apiKey: string,
+  items: ClothingItem[],
+  localTier: Tier,
+  model = DEFAULT_MODEL
+): Promise<OutfitNarrative> {
+  const itemList = items
+    .map((i) => `- ${i.name} (${i.category}, colors: ${i.colors.join('/')}, formality: ${i.formality}${i.pattern ? `, pattern: ${i.pattern}` : ''})`)
+    .join('\n');
+
+  const prompt = `You are a sharp, honest fashion stylist. A rule-based scoring system already rated this outfit as tier "${localTier}" (S best, F worst). Give a second opinion.
+Outfit pieces:
+${itemList}
+
+Respond with ONLY a JSON object, no prose, matching exactly this shape:
+{
+  "pros": array of 1-4 short, specific strings praising what's working,
+  "cons": array of 1-4 short, specific strings on what's not working or could improve,
+  "verdict": one short sentence saying whether you agree with the "${localTier}" tier and why
+}`;
+
+  const res = await fetch(endpointFor(model, apiKey), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.5, responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new GeminiError(`Gemini request failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+
+  const json = await res.json();
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    throw new GeminiError('Gemini response did not contain any text.');
+  }
+  const parsed = extractJson(text);
+
+  return {
+    pros: sanitizeStringArray(parsed.pros, 'Nothing offensive here.'),
+    cons: sanitizeStringArray(parsed.cons, 'No real weaknesses spotted.'),
+    verdict: typeof parsed.verdict === 'string' && parsed.verdict.trim() ? parsed.verdict : `Roughly agrees with the ${localTier} tier.`,
   };
 }

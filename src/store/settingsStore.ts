@@ -6,6 +6,7 @@ import type { AppSettings } from '@/src/types';
 const DEFAULTS: AppSettings = {
   preferPants: true,
   useAiEvaluation: true,
+  sockPreference: 'random',
 };
 
 interface SettingsState extends AppSettings {
@@ -28,6 +29,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       preferPants: get().preferPants,
       useAiEvaluation: get().useAiEvaluation,
       geminiApiKey: get().geminiApiKey,
+      sockPreference: get().sockPreference,
       ...patch,
     };
     set(next);

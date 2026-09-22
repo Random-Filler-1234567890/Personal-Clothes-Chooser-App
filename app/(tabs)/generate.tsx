@@ -1,22 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
 import { Chip } from '@/src/components/Chip';
 import { EmptyState } from '@/src/components/EmptyState';
-import { Icon } from '@/src/components/Icon';
+import { Icon, type IoniconName } from '@/src/components/Icon';
 import { ItemPickerSheet } from '@/src/components/ItemPickerSheet';
 import { OutfitResultCard } from '@/src/components/OutfitResultCard';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { ALL_FORMALITIES, FORMALITY_LABEL } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { generateOutfits } from '@/src/engine/outfitEngine';
+import { evaluateOutfitText, GeminiError, type OutfitNarrative } from '@/src/services/gemini';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
-import type { Category, Formality, GeneratedOutfit } from '@/src/types';
+import type { Category, Formality, GeneratedOutfit, Season } from '@/src/types';
+import { showAlert } from '@/src/utils/alert';
 import { todayIso } from '@/src/utils/date';
 
 type Quality = 'good' | 'random' | 'bad';
@@ -27,15 +29,48 @@ const VIBES: { value: Quality; label: string; icon: 'thumbs-up-outline' | 'shuff
   { value: 'bad', label: 'Terrible outfit', icon: 'skull-outline' },
 ];
 
+interface OccasionPreset {
+  key: string;
+  label: string;
+  icon: IoniconName;
+  formality?: Formality;
+  season: Season;
+}
+
+const OCCASIONS: OccasionPreset[] = [
+  { key: 'everyday', label: 'Everyday', icon: 'sunny-outline', formality: 'casual', season: 'all' },
+  { key: 'smart', label: 'Smart Casual', icon: 'shirt-outline', formality: 'smart-casual', season: 'all' },
+  { key: 'formal', label: 'Formal Event', icon: 'ribbon-outline', formality: 'formal', season: 'all' },
+  { key: 'gym', label: 'Gym', icon: 'fitness-outline', formality: 'athletic', season: 'all' },
+  { key: 'summer', label: 'Summer', icon: 'sunny', season: 'warm' },
+  { key: 'winter', label: 'Winter', icon: 'snow', season: 'cool' },
+];
+
+// Single-slot categories: at most one must-include item per group, since an
+// outfit only has room for one of each. Bottom/shorts share a slot (you wear
+// pants OR shorts, never both), everything else is its own group.
+const SLOT_GROUPS: Category[][] = [
+  ['bottom', 'shorts'],
+  ['top'],
+  ['shoes'],
+  ['outerwear'],
+  ['belt'],
+  ['tie'],
+  ['socks'],
+];
+
 export default function GenerateScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ itemId?: string }>();
   const items = useClosetStore((s) => s.items);
   const preferPants = useSettingsStore((s) => s.preferPants);
+  const sockPreference = useSettingsStore((s) => s.sockPreference);
+  const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
   const addOutfit = useOutfitStore((s) => s.addOutfit);
   const markWorn = useClosetStore((s) => s.markWorn);
 
   const [formality, setFormality] = useState<Formality | undefined>(undefined);
+  const [season, setSeason] = useState<Season>('all');
   const [quality, setQuality] = useState<Quality>('good');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [bottomColor, setBottomColor] = useState('');
@@ -44,33 +79,36 @@ export default function GenerateScreen() {
   const [mustIncludeIds, setMustIncludeIds] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [results, setResults] = useState<GeneratedOutfit[]>([]);
+  const [aiNarratives, setAiNarratives] = useState<Record<number, OutfitNarrative | null>>({});
+  const [askingAiIndex, setAskingAiIndex] = useState<number | null>(null);
 
   const mustIncludeItems = useMemo(
     () => items.filter((i) => mustIncludeIds.includes(i.id)),
     [items, mustIncludeIds]
   );
 
+  const activeOccasion = OCCASIONS.find((o) => o.formality === formality && o.season === season)?.key;
+
   function handleMustIncludeChange(nextIds: string[]) {
     const added = nextIds.filter((id) => !mustIncludeIds.includes(id));
-    const addedCategories = new Set(
-      added.map((id) => items.find((i) => i.id === id)?.category).filter(Boolean)
-    );
-    // An outfit has one bottom-half slot, so a newly picked pants item drops any
-    // previously picked shorts item as "must include" (and vice versa) rather than
-    // silently losing one of them once outfits are generated.
     let resolved = nextIds;
-    if (addedCategories.has('bottom')) {
-      resolved = resolved.filter((id) => items.find((i) => i.id === id)?.category !== 'shorts');
-    }
-    if (addedCategories.has('shorts')) {
-      resolved = resolved.filter((id) => items.find((i) => i.id === id)?.category !== 'bottom');
+    for (const addedId of added) {
+      const addedItem = items.find((i) => i.id === addedId);
+      if (!addedItem) continue;
+      const group = SLOT_GROUPS.find((g) => g.includes(addedItem.category));
+      if (!group) continue;
+      resolved = resolved.filter((id) => {
+        if (id === addedId) return true;
+        const other = items.find((i) => i.id === id);
+        return !other || !group.includes(other.category);
+      });
     }
     setMustIncludeIds(resolved);
   }
 
   useEffect(() => {
     if (params.itemId && !mustIncludeIds.includes(params.itemId)) {
-      setMustIncludeIds((prev) => [...prev, params.itemId as string]);
+      handleMustIncludeChange([...mustIncludeIds, params.itemId as string]);
       setShowAdvanced(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +126,7 @@ export default function GenerateScreen() {
     }
     return {
       formality,
+      season,
       quality,
       count,
       mustIncludeItemIds: mustIncludeIds,
@@ -97,10 +136,11 @@ export default function GenerateScreen() {
   }
 
   function handleGenerate() {
-    const outfits = generateOutfits(items, buildCriteria(4), preferPants);
+    const outfits = generateOutfits(items, buildCriteria(4), preferPants, sockPreference);
     setResults(outfits);
+    setAiNarratives({});
     if (!outfits.length) {
-      Alert.alert(
+      showAlert(
         "Couldn't build an outfit",
         'Try loosening your criteria — you may need more items in that formality, color, or category.'
       );
@@ -108,9 +148,25 @@ export default function GenerateScreen() {
   }
 
   function handleRegenerateOne(index: number) {
-    const outfits = generateOutfits(items, buildCriteria(1), preferPants);
+    const outfits = generateOutfits(items, buildCriteria(1), preferPants, sockPreference);
     if (!outfits.length) return;
     setResults((prev) => prev.map((o, i) => (i === index ? outfits[0] : o)));
+    setAiNarratives((prev) => ({ ...prev, [index]: null }));
+  }
+
+  async function handleAskAi(index: number, outfit: GeneratedOutfit) {
+    if (!geminiApiKey) return;
+    const outfitItems = outfit.itemIds.map((id) => items.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i);
+    setAskingAiIndex(index);
+    try {
+      const narrative = await evaluateOutfitText(geminiApiKey, outfitItems, outfit.tier);
+      setAiNarratives((prev) => ({ ...prev, [index]: narrative }));
+    } catch (err) {
+      const message = err instanceof GeminiError ? err.message : 'Could not get an AI opinion on this outfit.';
+      showAlert('AI evaluation failed', message);
+    } finally {
+      setAskingAiIndex(null);
+    }
   }
 
   async function handleWearToday(outfit: GeneratedOutfit) {
@@ -120,7 +176,8 @@ export default function GenerateScreen() {
         itemIds: outfit.itemIds,
         tier: outfit.tier,
         score: outfit.score,
-        tierReasoning: outfit.breakdown.join(' '),
+        tierPros: outfit.pros,
+        tierCons: outfit.cons,
         aiEvaluated: false,
         wornOn: todayIso(),
         source: 'generated',
@@ -134,16 +191,39 @@ export default function GenerateScreen() {
       itemIds: outfit.itemIds,
       tier: outfit.tier,
       score: outfit.score,
-      tierReasoning: outfit.breakdown.join(' '),
+      tierPros: outfit.pros,
+      tierCons: outfit.cons,
       aiEvaluated: false,
       source: 'generated',
     });
-    Alert.alert('Saved', 'This outfit was saved to your history.');
+    showAlert('Saved', 'This outfit was saved to your history.');
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
       <Card style={{ gap: spacing.md }}>
+        <View>
+          <SectionHeader title="Occasion" />
+          <View style={styles.occasionRow}>
+            {OCCASIONS.map((o) => {
+              const selected = activeOccasion === o.key;
+              return (
+                <Pressable
+                  key={o.key}
+                  onPress={() => {
+                    setFormality(o.formality);
+                    setSeason(o.season);
+                  }}
+                  style={[styles.occasionChip, selected && styles.occasionChipSelected]}
+                >
+                  <Icon name={o.icon} size={14} color={selected ? '#FFFFFF' : colors.textMuted} />
+                  <Text style={[styles.occasionLabel, selected && styles.occasionLabelSelected]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View>
           <SectionHeader title="Vibe" />
           <View style={styles.vibeRow}>
@@ -170,6 +250,15 @@ export default function GenerateScreen() {
             {ALL_FORMALITIES.map((f) => (
               <Chip key={f} label={FORMALITY_LABEL[f]} selected={formality === f} onPress={() => setFormality(f)} />
             ))}
+          </View>
+        </View>
+
+        <View>
+          <SectionHeader title="Weather" />
+          <View style={styles.chipRow}>
+            <Chip label="Any" selected={season === 'all'} onPress={() => setSeason('all')} />
+            <Chip label="Warm" selected={season === 'warm'} onPress={() => setSeason('warm')} />
+            <Chip label="Cool" selected={season === 'cool'} onPress={() => setSeason('cool')} />
           </View>
         </View>
       </Card>
@@ -260,6 +349,9 @@ export default function GenerateScreen() {
               onWearToday={() => handleWearToday(outfit)}
               onSave={() => handleSaveForLater(outfit)}
               onRegenerate={() => handleRegenerateOne(idx)}
+              onAskAi={geminiApiKey ? () => handleAskAi(idx, outfit) : undefined}
+              aiNarrative={aiNarratives[idx]}
+              askingAi={askingAiIndex === idx}
             />
           ))
         )}
@@ -290,6 +382,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
+  occasionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  occasionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 3,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  occasionChipSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  occasionLabel: { fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
+  occasionLabelSelected: { color: '#FFFFFF' },
   vibeRow: { flexDirection: 'row', gap: spacing.sm },
   vibeButton: {
     flex: 1,

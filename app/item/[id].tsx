@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
@@ -14,6 +14,7 @@ import { colors, radii, spacing } from '@/src/constants/theme';
 import { deleteImage, persistImage } from '@/src/services/imageStorage';
 import { useClosetStore } from '@/src/store/closetStore';
 import type { ClothingItem } from '@/src/types';
+import { showAlert } from '@/src/utils/alert';
 import { formatDate, formatRelative } from '@/src/utils/date';
 
 function toDraft(item: ClothingItem): ItemDraft {
@@ -29,6 +30,7 @@ function toDraft(item: ClothingItem): ItemDraft {
     brand: item.brand,
     pattern: item.pattern,
     notes: item.notes,
+    quantity: item.quantity ?? 1,
   };
 }
 
@@ -69,7 +71,7 @@ export default function ItemDetailScreen() {
   async function changePhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo library access to continue.');
+      showAlert('Permission needed', 'Please allow photo library access to continue.');
       return;
     }
     const pickerResult = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
@@ -100,15 +102,16 @@ export default function ItemDetailScreen() {
         brand: draft.brand?.trim() || undefined,
         pattern: draft.pattern?.trim() || undefined,
         notes: draft.notes?.trim() || undefined,
+        quantity: draft.quantity,
       });
-      Alert.alert('Saved', 'Your changes were saved.');
+      showAlert('Saved', 'Your changes were saved.');
     } finally {
       setSaving(false);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('Delete item?', `Remove "${currentItem.name}" from your closet permanently.`, [
+    showAlert('Delete item?', `Remove "${currentItem.name}" from your closet permanently.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -146,6 +149,15 @@ export default function ItemDetailScreen() {
           <Text style={styles.statValue}>{formatDate(item.createdAt)}</Text>
           <Text style={styles.statLabel}>Added</Text>
         </View>
+        {item.quantity && item.quantity > 1 ? (
+          <>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statValue}>×{item.quantity}</Text>
+              <Text style={styles.statLabel}>You own</Text>
+            </View>
+          </>
+        ) : null}
       </Card>
 
       <View style={{ marginTop: spacing.lg }}>

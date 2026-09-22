@@ -1,17 +1,19 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
 import { ClothingImage } from '@/src/components/ClothingImage';
 import { EmptyState } from '@/src/components/EmptyState';
 import { OutfitItemList } from '@/src/components/OutfitItemRow';
+import { ProsConsList } from '@/src/components/ProsConsList';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { TierBadge } from '@/src/components/TierBadge';
 import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
+import { showAlert } from '@/src/utils/alert';
 import { formatDate, todayIso } from '@/src/utils/date';
 
 export default function OutfitDetailScreen() {
@@ -41,7 +43,7 @@ export default function OutfitDetailScreen() {
   }
 
   function confirmDelete() {
-    Alert.alert('Delete outfit?', 'This removes it from your history.', [
+    showAlert('Delete outfit?', 'This removes it from your history.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -76,7 +78,11 @@ export default function OutfitDetailScreen() {
         </View>
       </View>
 
-      {outfit.tierReasoning ? (
+      {outfit.tierPros?.length || outfit.tierCons?.length ? (
+        <Card style={{ marginBottom: spacing.lg }}>
+          <ProsConsList pros={outfit.tierPros ?? []} cons={outfit.tierCons ?? []} />
+        </Card>
+      ) : outfit.tierReasoning ? (
         <Card style={{ marginBottom: spacing.lg }}>
           <Text style={styles.reasoning}>{outfit.tierReasoning}</Text>
         </Card>

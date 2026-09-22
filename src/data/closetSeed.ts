@@ -8,7 +8,7 @@ function item(
   subcategory: Subcategory,
   colors: string[],
   formality: Formality,
-  opts: Partial<Pick<SeedItem, 'pattern' | 'brand' | 'fit' | 'sleeve' | 'season' | 'notes'>> = {}
+  opts: Partial<Pick<SeedItem, 'pattern' | 'brand' | 'fit' | 'sleeve' | 'season' | 'notes' | 'quantity'>> = {}
 ): SeedItem {
   return {
     name,
@@ -22,6 +22,7 @@ function item(
     pattern: opts.pattern,
     brand: opts.brand,
     notes: opts.notes,
+    quantity: opts.quantity,
   };
 }
 
@@ -43,8 +44,7 @@ const socks: SeedItem[] = [
 // Pants — casual / athletic
 const pantsCasual: SeedItem[] = [
   item('White loose pants', 'bottom', 'pants', ['white'], 'casual', { fit: 'loose' }),
-  item('Black loose pants (1)', 'bottom', 'pants', ['black'], 'casual', { fit: 'loose' }),
-  item('Black loose pants (2)', 'bottom', 'pants', ['black'], 'casual', { fit: 'loose' }),
+  item('Black loose pants', 'bottom', 'pants', ['black'], 'casual', { fit: 'loose', quantity: 2 }),
   item('Black tight pants', 'bottom', 'pants', ['black'], 'casual', { fit: 'tight' }),
   item('Bright red loose pants', 'bottom', 'pants', ['red'], 'casual', { fit: 'loose' }),
   item('Brown loose pants', 'bottom', 'pants', ['brown'], 'casual', { fit: 'loose' }),
@@ -75,8 +75,7 @@ const shortsCasual: SeedItem[] = [
   }),
   item('Slightly dark grey shorts', 'shorts', 'shorts', ['dark-grey'], 'casual'),
   item('Medium grey shorts', 'shorts', 'shorts', ['grey'], 'casual'),
-  item('Black shorts (1)', 'shorts', 'shorts', ['black'], 'casual'),
-  item('Black shorts (2)', 'shorts', 'shorts', ['black'], 'casual'),
+  item('Black shorts', 'shorts', 'shorts', ['black'], 'casual', { quantity: 2 }),
   item('Light blue shorts', 'shorts', 'shorts', ['light-blue'], 'casual'),
   item('Tan / beige shorts', 'shorts', 'shorts', ['tan'], 'casual'),
 ];
@@ -109,16 +108,13 @@ const tees: SeedItem[] = [
     pattern: 'Mandalorian graphic',
     sleeve: 'short',
   }),
-  item('White tee (1)', 'top', 'tshirt', ['white'], 'casual', { sleeve: 'short' }),
-  item('Black tee (1)', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short' }),
+  item('White tee', 'top', 'tshirt', ['white'], 'casual', { sleeve: 'short', quantity: 2 }),
+  item('Black tee', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short', quantity: 5 }),
   item('Bright green tee', 'top', 'tshirt', ['bright-green'], 'casual', { sleeve: 'short' }),
-  item('Olive green tee (1)', 'top', 'tshirt', ['olive'], 'casual', { sleeve: 'short' }),
+  item('Olive green tee', 'top', 'tshirt', ['olive'], 'casual', { sleeve: 'short', quantity: 2 }),
   item('Light purple tee', 'top', 'tshirt', ['light-purple'], 'casual', { sleeve: 'short' }),
   item('Dark red tee', 'top', 'tshirt', ['dark-red'], 'casual', { sleeve: 'short' }),
   item('Light pink tee', 'top', 'tshirt', ['light-pink'], 'casual', { sleeve: 'short' }),
-  item('Olive green tee (2)', 'top', 'tshirt', ['olive'], 'casual', { sleeve: 'short' }),
-  item('Black tee (2)', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short' }),
-  item('White tee (2)', 'top', 'tshirt', ['white'], 'casual', { sleeve: 'short' }),
   item('Light blue Calvin Klein tee', 'top', 'tshirt', ['light-blue'], 'casual', {
     brand: 'Calvin Klein',
     sleeve: 'short',
@@ -131,10 +127,7 @@ const tees: SeedItem[] = [
     sleeve: 'short',
   }),
   item('Cream tee', 'top', 'tshirt', ['cream'], 'casual', { sleeve: 'short' }),
-  item('Black tee (3)', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short' }),
-  item('Black tee (4)', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short' }),
-  item('Black tee (5)', 'top', 'tshirt', ['black'], 'casual', { sleeve: 'short' }),
-  item('Dark olive green tee (3)', 'top', 'tshirt', ['dark-olive'], 'casual', { sleeve: 'short' }),
+  item('Dark olive green tee', 'top', 'tshirt', ['dark-olive'], 'casual', { sleeve: 'short' }),
   item('Light grey tee', 'top', 'tshirt', ['light-grey'], 'casual', { sleeve: 'short' }),
   item("Black tee, '2028' front / 'Grade 8' back graphic", 'top', 'graphic-tee', ['black', 'yellow'], 'casual', {
     pattern: "'2028' front graphic, 'Grade 8' back graphic",

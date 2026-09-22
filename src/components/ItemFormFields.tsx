@@ -30,6 +30,7 @@ export interface ItemDraft {
   brand?: string;
   pattern?: string;
   notes?: string;
+  quantity: number;
 }
 
 const FITS: Fit[] = ['loose', 'regular', 'tight', 'relaxed'];
@@ -108,16 +109,34 @@ export function ItemFormFields({ draft, onChange }: { draft: ItemDraft; onChange
           <ChipRow options={subcats} value={draft.subcategory} labels={SUBCATEGORY_LABEL} onChange={(v) => v && onChange({ subcategory: v })} />
         </Field>
 
+        <Field label="Colors">
+          <TextInput
+            value={draft.colorsText}
+            onChangeText={(colorsText) => onChange({ colorsText })}
+            placeholder="e.g. black, white — comma separated"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            autoCapitalize="none"
+          />
+        </Field>
+
         <View style={{ marginBottom: 0 }}>
-          <Field label="Colors">
-            <TextInput
-              value={draft.colorsText}
-              onChangeText={(colorsText) => onChange({ colorsText })}
-              placeholder="e.g. black, white — comma separated"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              autoCapitalize="none"
-            />
+          <Field label="How many identical ones do you own?">
+            <View style={styles.stepper}>
+              <Pressable
+                style={styles.stepperButton}
+                onPress={() => onChange({ quantity: Math.max(1, draft.quantity - 1) })}
+              >
+                <Icon name="remove" size={16} color={colors.text} />
+              </Pressable>
+              <Text style={styles.stepperValue}>{draft.quantity}</Text>
+              <Pressable
+                style={styles.stepperButton}
+                onPress={() => onChange({ quantity: Math.min(20, draft.quantity + 1) })}
+              >
+                <Icon name="add" size={16} color={colors.text} />
+              </Pressable>
+            </View>
           </Field>
         </View>
       </Card>
@@ -212,5 +231,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    alignSelf: 'flex-start',
+  },
+  stepperButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+    minWidth: 24,
+    textAlign: 'center',
   },
 });

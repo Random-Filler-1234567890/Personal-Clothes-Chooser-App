@@ -20,6 +20,11 @@ export function ItemCard({ item, onPress, width }: { item: ClothingItem; onPress
           <Icon name="star" size={11} color="#FFFFFF" />
         </View>
       ) : null}
+      {item.quantity && item.quantity > 1 ? (
+        <View style={styles.quantityBadge}>
+          <Text style={styles.quantityText}>×{item.quantity}</Text>
+        </View>
+      ) : null}
       <Text numberOfLines={2} style={styles.name}>
         {item.name}
       </Text>
@@ -50,6 +55,20 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quantityBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: 'rgba(33,29,24,0.75)',
+    borderRadius: radii.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  quantityText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   name: {
     marginTop: spacing.xs,
