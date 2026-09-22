@@ -1,21 +1,42 @@
 import { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
 import { Chip } from '@/src/components/Chip';
+import { Icon } from '@/src/components/Icon';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { colors, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
 import { useOutfitStore } from '@/src/store/outfitStore';
 import { useSettingsStore } from '@/src/store/settingsStore';
-import type { SockPreference } from '@/src/types';
+import type { BoldnessPreference, ColorUndertone, SockPreference, StyleLeaning } from '@/src/types';
 import { showAlert } from '@/src/utils/alert';
 
 const SOCK_OPTIONS: { value: SockPreference; label: string }[] = [
   { value: 'random', label: 'Whatever matches' },
   { value: 'white', label: 'White' },
   { value: 'black', label: 'Black' },
+];
+
+const STYLE_LEANING_OPTIONS: { value: StyleLeaning; label: string }[] = [
+  { value: 'none', label: 'No preference' },
+  { value: 'masculine', label: 'Masculine' },
+  { value: 'feminine', label: 'Feminine' },
+  { value: 'neutral', label: 'Neutral' },
+];
+
+const BOLDNESS_OPTIONS: { value: BoldnessPreference; label: string }[] = [
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'bold', label: 'Bold' },
+];
+
+const UNDERTONE_OPTIONS: { value: ColorUndertone; label: string }[] = [
+  { value: 'unknown', label: "Not sure" },
+  { value: 'warm', label: 'Warm' },
+  { value: 'cool', label: 'Cool' },
+  { value: 'neutral', label: 'Neutral' },
 ];
 
 export default function SettingsScreen() {
@@ -25,6 +46,7 @@ export default function SettingsScreen() {
   const resetToSeed = useClosetStore((s) => s.resetToSeed);
 
   const [keyDraft, setKeyDraft] = useState(settings.geminiApiKey ?? '');
+  const [showStyleProfile, setShowStyleProfile] = useState(false);
 
   function saveKey() {
     settings.update({ geminiApiKey: keyDraft.trim() || undefined });
@@ -110,6 +132,70 @@ export default function SettingsScreen() {
             ))}
           </View>
         </View>
+      </Card>
+
+      <Card>
+        <Pressable onPress={() => setShowStyleProfile((s) => !s)}>
+          <SectionHeader
+            title="Style profile (optional)"
+            action={<Icon name={showStyleProfile ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />}
+          />
+        </Pressable>
+        <Text style={styles.helper}>
+          Entirely optional — tells the feedback how to talk about a fit and nudges generation toward bolder or more
+          subtle picks. Leave it as-is and nothing changes.
+        </Text>
+
+        {showStyleProfile ? (
+          <View style={{ gap: spacing.lg }}>
+            <View>
+              <Text style={styles.switchLabel}>How should feedback describe your fits?</Text>
+              <View style={styles.chipRow}>
+                {STYLE_LEANING_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    selected={settings.styleLeaning === opt.value}
+                    onPress={() => settings.update({ styleLeaning: opt.value })}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.switchLabel}>Confidence / boldness</Text>
+              <Text style={styles.helper}>Nudges generated outfits toward more statement pieces or safer, quieter ones.</Text>
+              <View style={styles.chipRow}>
+                {BOLDNESS_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    selected={settings.boldness === opt.value}
+                    onPress={() => settings.update({ boldness: opt.value })}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={{ marginBottom: 0 }}>
+              <Text style={styles.switchLabel}>Color undertone</Text>
+              <Text style={styles.helper}>
+                If you know whether you lean warm or cool, feedback will occasionally note when a palette does or
+                doesn't play well with it.
+              </Text>
+              <View style={styles.chipRow}>
+                {UNDERTONE_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    selected={settings.colorUndertone === opt.value}
+                    onPress={() => settings.update({ colorUndertone: opt.value })}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : null}
       </Card>
 
       <Card>

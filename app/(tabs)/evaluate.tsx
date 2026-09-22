@@ -11,9 +11,11 @@ import { ItemPickerSheet } from '@/src/components/ItemPickerSheet';
 import { OutfitItemList } from '@/src/components/OutfitItemRow';
 import { ProsConsList } from '@/src/components/ProsConsList';
 import { TierBadge } from '@/src/components/TierBadge';
+import { VibeTags } from '@/src/components/VibeTags';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { scoreCandidate } from '@/src/engine/outfitEngine';
 import { scoreToTier } from '@/src/engine/tierEngine';
+import { computeVibeTags } from '@/src/engine/vibeEngine';
 import { evaluateOutfitPhoto, GeminiError } from '@/src/services/gemini';
 import { persistImage } from '@/src/services/imageStorage';
 import { useClosetStore } from '@/src/store/closetStore';
@@ -27,6 +29,7 @@ interface EvalResult {
   tier: Tier;
   pros: string[];
   cons: string[];
+  vibeTags: string[];
   aiEvaluated: boolean;
 }
 
@@ -81,8 +84,10 @@ export default function EvaluateScreen() {
         items
       );
       const matched = ai.matchedItemIds.filter((id) => items.some((i) => i.id === id));
-      setSelectedIds(currentSelectedIds.length ? currentSelectedIds : matched);
-      setResult({ tier: ai.tier, pros: ai.pros, cons: ai.cons, aiEvaluated: true });
+      const finalIds = currentSelectedIds.length ? currentSelectedIds : matched;
+      setSelectedIds(finalIds);
+      const matchedItems = finalIds.map((id) => items.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i);
+      setResult({ tier: ai.tier, pros: ai.pros, cons: ai.cons, vibeTags: computeVibeTags(matchedItems), aiEvaluated: true });
       return true;
     } catch (err) {
       const message = err instanceof GeminiError ? err.message : 'AI evaluation failed, using local scoring instead.';
@@ -103,8 +108,11 @@ export default function EvaluateScreen() {
         showAlert('Tag your items', 'Select which closet items you are wearing so the app can score the fit.');
         return;
       }
-      const { score, pros, cons } = scoreCandidate(selectedItems, {});
-      setResult({ tier: scoreToTier(score), pros, cons, aiEvaluated: false });
+      const { score, pros, cons, vibeTags } = scoreCandidate(selectedItems, {}, {
+        styleLeaning: settings.styleLeaning,
+        colorUndertone: settings.colorUndertone,
+      });
+      setResult({ tier: scoreToTier(score), pros, cons, vibeTags, aiEvaluated: false });
     } finally {
       setEvaluating(false);
     }
@@ -123,6 +131,7 @@ export default function EvaluateScreen() {
         tier: result.tier,
         tierPros: result.pros,
         tierCons: result.cons,
+        vibeTags: result.vibeTags,
         aiEvaluated: result.aiEvaluated,
         photoUri: persistedUri,
         wornOn: todayIso(),
@@ -181,6 +190,9 @@ export default function EvaluateScreen() {
               <View style={styles.resultHeader}>
                 <TierBadge tier={result.tier} size="lg" />
                 <Text style={styles.resultSource}>{result.aiEvaluated ? 'AI evaluation' : 'Local scoring'}</Text>
+              </View>
+              <View style={{ marginBottom: spacing.sm }}>
+                <VibeTags tags={result.vibeTags} />
               </View>
               <ProsConsList pros={result.pros} cons={result.cons} />
               {selectedItems.length ? <OutfitItemList items={selectedItems} /> : null}

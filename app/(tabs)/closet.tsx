@@ -6,10 +6,10 @@ import { Chip } from '@/src/components/Chip';
 import { EmptyState } from '@/src/components/EmptyState';
 import { Icon } from '@/src/components/Icon';
 import { ItemCard } from '@/src/components/ItemCard';
-import { ALL_CATEGORIES, CATEGORY_LABEL } from '@/src/constants/categories';
+import { ALL_CATEGORIES, ALL_FORMALITIES, CATEGORY_LABEL, FORMALITY_LABEL } from '@/src/constants/categories';
 import { colors, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
-import type { Category } from '@/src/types';
+import type { Category, Formality } from '@/src/types';
 
 const GRID_GAP = spacing.md;
 const H_PADDING = spacing.lg;
@@ -22,7 +22,13 @@ export default function ClosetScreen() {
   const items = useClosetStore((s) => s.items);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
+  const [formalityFilter, setFormalityFilter] = useState<Formality | 'all'>('all');
   const { width } = useWindowDimensions();
+
+  function selectCategory(next: CategoryFilter) {
+    setCategory(next);
+    setFormalityFilter('all');
+  }
 
   const columns = 3;
   const cardWidth = (width - H_PADDING * 2 - GRID_GAP * (columns - 1)) / columns;
@@ -39,13 +45,19 @@ export default function ClosetScreen() {
 
   const active = useMemo(() => items.filter((i) => !i.archived), [items]);
 
+  const formalitiesInCategory = useMemo(() => {
+    if (category === 'all' || category === 'favorites') return [];
+    return ALL_FORMALITIES.filter((f) => active.some((i) => i.category === category && i.formality === f));
+  }, [active, category]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return active
       .filter((i) => category === 'all' || (category === 'favorites' ? i.favorite : i.category === category))
+      .filter((i) => formalityFilter === 'all' || i.formality === formalityFilter)
       .filter((i) => !q || i.name.toLowerCase().includes(q) || i.colors.some((c) => c.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [active, query, category]);
+  }, [active, query, category, formalityFilter]);
 
   const favoriteCount = active.filter((i) => i.favorite).length;
 
@@ -66,14 +78,27 @@ export default function ClosetScreen() {
         contentContainerStyle={{ paddingHorizontal: H_PADDING }}
         style={styles.filterRow}
       >
-        <Chip label={`All (${active.length})`} selected={category === 'all'} onPress={() => setCategory('all')} />
+        <Chip label={`All (${active.length})`} selected={category === 'all'} onPress={() => selectCategory('all')} />
         {favoriteCount > 0 ? (
-          <Chip label={`★ Favorites (${favoriteCount})`} selected={category === 'favorites'} onPress={() => setCategory('favorites')} />
+          <Chip label={`★ Favorites (${favoriteCount})`} selected={category === 'favorites'} onPress={() => selectCategory('favorites')} />
         ) : null}
         {ALL_CATEGORIES.filter((c) => active.some((i) => i.category === c)).map((c) => (
-          <Chip key={c} label={CATEGORY_LABEL[c]} selected={category === c} onPress={() => setCategory(c)} />
+          <Chip key={c} label={CATEGORY_LABEL[c]} selected={category === c} onPress={() => selectCategory(c)} />
         ))}
       </ScrollView>
+      {formalitiesInCategory.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: H_PADDING }}
+          style={styles.subFilterRow}
+        >
+          <Chip label="All" selected={formalityFilter === 'all'} onPress={() => setFormalityFilter('all')} />
+          {formalitiesInCategory.map((f) => (
+            <Chip key={f} label={FORMALITY_LABEL[f]} selected={formalityFilter === f} onPress={() => setFormalityFilter(f)} />
+          ))}
+        </ScrollView>
+      ) : null}
       {filtered.length === 0 ? (
         <EmptyState
           icon="shirt-outline"
@@ -115,4 +140,5 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   filterRow: { marginTop: spacing.md, flexGrow: 0, flexShrink: 0 },
+  subFilterRow: { marginTop: spacing.sm, flexGrow: 0, flexShrink: 0 },
 });

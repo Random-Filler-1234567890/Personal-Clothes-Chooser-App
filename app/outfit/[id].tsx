@@ -9,6 +9,7 @@ import { OutfitItemList } from '@/src/components/OutfitItemRow';
 import { ProsConsList } from '@/src/components/ProsConsList';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { TierBadge } from '@/src/components/TierBadge';
+import { VibeTags } from '@/src/components/VibeTags';
 import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
@@ -77,6 +78,12 @@ export default function OutfitDetailScreen() {
           </Text>
         </View>
       </View>
+
+      {outfit.vibeTags?.length ? (
+        <View style={{ marginBottom: spacing.lg }}>
+          <VibeTags tags={outfit.vibeTags} />
+        </View>
+      ) : null}
 
       {outfit.tierPros?.length || outfit.tierCons?.length ? (
         <Card style={{ marginBottom: spacing.lg }}>

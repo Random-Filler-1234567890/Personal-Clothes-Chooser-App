@@ -39,6 +39,10 @@ export default function HomeScreen() {
   const preferPants = useSettingsStore((s) => s.preferPants);
   const sockPreference = useSettingsStore((s) => s.sockPreference);
   const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
+  const boldness = useSettingsStore((s) => s.boldness);
+  const styleLeaning = useSettingsStore((s) => s.styleLeaning);
+  const colorUndertone = useSettingsStore((s) => s.colorUndertone);
+  const styleProfile = useMemo(() => ({ boldness, styleLeaning, colorUndertone }), [boldness, styleLeaning, colorUndertone]);
 
   const [outfit, setOutfit] = useState<GeneratedOutfit | null>(null);
   const [mood, setMood] = useState<Mood | null>(null);
@@ -62,7 +66,7 @@ export default function HomeScreen() {
   }, [outfits]);
 
   function roll(nextMood: Mood) {
-    const results = generateOutfits(items, { quality: nextMood, count: 1 }, preferPants, sockPreference);
+    const results = generateOutfits(items, { quality: nextMood, count: 1 }, preferPants, sockPreference, styleProfile);
     setMood(nextMood);
     setOutfit(results[0] ?? null);
     setAiNarrative(null);
@@ -94,6 +98,7 @@ export default function HomeScreen() {
         score: outfit.score,
         tierPros: outfit.pros,
         tierCons: outfit.cons,
+        vibeTags: outfit.vibeTags,
         aiEvaluated: false,
         wornOn: todayIso(),
         source: 'generated',
@@ -110,6 +115,7 @@ export default function HomeScreen() {
       score: outfit.score,
       tierPros: outfit.pros,
       tierCons: outfit.cons,
+      vibeTags: outfit.vibeTags,
       aiEvaluated: false,
       source: 'generated',
     });

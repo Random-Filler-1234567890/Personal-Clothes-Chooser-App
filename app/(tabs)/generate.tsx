@@ -66,6 +66,10 @@ export default function GenerateScreen() {
   const preferPants = useSettingsStore((s) => s.preferPants);
   const sockPreference = useSettingsStore((s) => s.sockPreference);
   const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
+  const boldness = useSettingsStore((s) => s.boldness);
+  const styleLeaning = useSettingsStore((s) => s.styleLeaning);
+  const colorUndertone = useSettingsStore((s) => s.colorUndertone);
+  const styleProfile = useMemo(() => ({ boldness, styleLeaning, colorUndertone }), [boldness, styleLeaning, colorUndertone]);
   const addOutfit = useOutfitStore((s) => s.addOutfit);
   const markWorn = useClosetStore((s) => s.markWorn);
 
@@ -136,7 +140,7 @@ export default function GenerateScreen() {
   }
 
   function handleGenerate() {
-    const outfits = generateOutfits(items, buildCriteria(4), preferPants, sockPreference);
+    const outfits = generateOutfits(items, buildCriteria(4), preferPants, sockPreference, styleProfile);
     setResults(outfits);
     setAiNarratives({});
     if (!outfits.length) {
@@ -148,7 +152,7 @@ export default function GenerateScreen() {
   }
 
   function handleRegenerateOne(index: number) {
-    const outfits = generateOutfits(items, buildCriteria(1), preferPants, sockPreference);
+    const outfits = generateOutfits(items, buildCriteria(1), preferPants, sockPreference, styleProfile);
     if (!outfits.length) return;
     setResults((prev) => prev.map((o, i) => (i === index ? outfits[0] : o)));
     setAiNarratives((prev) => ({ ...prev, [index]: null }));
@@ -178,6 +182,7 @@ export default function GenerateScreen() {
         score: outfit.score,
         tierPros: outfit.pros,
         tierCons: outfit.cons,
+        vibeTags: outfit.vibeTags,
         aiEvaluated: false,
         wornOn: todayIso(),
         source: 'generated',
@@ -193,6 +198,7 @@ export default function GenerateScreen() {
       score: outfit.score,
       tierPros: outfit.pros,
       tierCons: outfit.cons,
+      vibeTags: outfit.vibeTags,
       aiEvaluated: false,
       source: 'generated',
     });

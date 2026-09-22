@@ -1,6 +1,6 @@
-type Intensity = 'neutral' | 'muted' | 'pastel' | 'bright';
+export type Intensity = 'neutral' | 'muted' | 'pastel' | 'bright';
 
-interface ColorInfo {
+export interface ColorInfo {
   intensity: Intensity;
   hue: number | null; // degrees on the color wheel, null for neutrals / unclassified
 }
@@ -99,6 +99,26 @@ function classify(color: string): ColorInfo {
 
 export function colorFamily(color: string): Intensity {
   return classify(color).intensity;
+}
+
+export function colorHueInfo(color: string): ColorInfo {
+  return classify(color);
+}
+
+/** Rough warm/cool split by hue angle. Reds/oranges/yellows/browns read warm;
+ * greens/blues/purples read cool. Only meaningful for non-neutral, hue-classified colors. */
+export function isWarmHue(hue: number): boolean {
+  return hue < 90 || hue > 300;
+}
+
+const LIGHT_NEUTRALS = new Set(['white', 'off-white', 'cream', 'ivory', 'light-grey', 'light-gray', 'silver']);
+const DARK_NEUTRALS = new Set(['black', 'charcoal', 'navy', 'dark-grey', 'dark-gray']);
+
+export function neutralShade(color: string): 'light' | 'dark' | null {
+  const c = color.toLowerCase().trim();
+  if (LIGHT_NEUTRALS.has(c)) return 'light';
+  if (DARK_NEUTRALS.has(c)) return 'dark';
+  return null;
 }
 
 function hueDistance(a: number, b: number): number {

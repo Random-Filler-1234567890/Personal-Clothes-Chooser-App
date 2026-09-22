@@ -87,6 +87,7 @@ export interface Outfit {
   tierReasoning?: string;
   tierPros?: string[];
   tierCons?: string[];
+  vibeTags?: string[];
   aiEvaluated: boolean;
   photoUri?: string;
   createdAt: string;
@@ -113,13 +114,28 @@ export interface GeneratedOutfit {
   tier: Tier;
   pros: string[];
   cons: string[];
+  vibeTags: string[];
 }
 
 export type SockPreference = 'random' | 'white' | 'black';
+
+/** How the written feedback talks about a fit's overall character. Purely a word-choice
+ * preference — never gates which items or combinations the engine will pick. */
+export type StyleLeaning = 'masculine' | 'feminine' | 'neutral' | 'none';
+
+/** Manually self-reported, since reliably auto-detecting this from a photo isn't something
+ * this app does — used only to add an occasional contextual color-harmony note. */
+export type ColorUndertone = 'warm' | 'cool' | 'neutral' | 'unknown';
+
+/** Nudges outfit generation toward/away from patterned or attention-grabbing pieces. */
+export type BoldnessPreference = 'bold' | 'balanced' | 'subtle';
 
 export interface AppSettings {
   geminiApiKey?: string;
   preferPants: boolean;
   useAiEvaluation: boolean;
   sockPreference: SockPreference;
+  styleLeaning: StyleLeaning;
+  colorUndertone: ColorUndertone;
+  boldness: BoldnessPreference;
 }

@@ -5,6 +5,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ClothingImage } from '@/src/components/ClothingImage';
 import { EmptyState } from '@/src/components/EmptyState';
 import { TierBadge } from '@/src/components/TierBadge';
+import { VibeTags } from '@/src/components/VibeTags';
 import { CATEGORY_ICON } from '@/src/constants/categories';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useClosetStore } from '@/src/store/closetStore';
@@ -51,6 +52,11 @@ export default function HistoryScreen() {
               <Text style={styles.rowItems} numberOfLines={1}>
                 {outfitItems.map((i) => i.name).join(', ') || 'No items tagged'}
               </Text>
+              {outfit.vibeTags?.length ? (
+                <View style={{ marginTop: 4 }}>
+                  <VibeTags tags={outfit.vibeTags.slice(0, 2)} />
+                </View>
+              ) : null}
             </View>
             {outfit.tier ? <TierBadge tier={outfit.tier} size="sm" /> : null}
           </Pressable>

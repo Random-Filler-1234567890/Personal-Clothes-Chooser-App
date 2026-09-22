@@ -6,6 +6,7 @@ import { Icon } from '@/src/components/Icon';
 import { OutfitItemRow, OutfitNameLine } from '@/src/components/OutfitItemRow';
 import { ProsConsList } from '@/src/components/ProsConsList';
 import { TierBadge } from '@/src/components/TierBadge';
+import { VibeTags } from '@/src/components/VibeTags';
 import { colors, spacing } from '@/src/constants/theme';
 import type { OutfitNarrative } from '@/src/services/gemini';
 import type { ClothingItem, GeneratedOutfit } from '@/src/types';
@@ -44,6 +45,9 @@ export function OutfitResultCard({
 
       <OutfitNameLine items={items} />
       <OutfitItemRow items={items} />
+      <View style={{ marginTop: spacing.xs }}>
+        <VibeTags tags={outfit.vibeTags} />
+      </View>
 
       <View style={styles.breakdown}>
         <ProsConsList pros={outfit.pros} cons={outfit.cons} />

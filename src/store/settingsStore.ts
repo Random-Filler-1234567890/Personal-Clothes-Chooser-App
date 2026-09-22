@@ -7,6 +7,9 @@ const DEFAULTS: AppSettings = {
   preferPants: true,
   useAiEvaluation: true,
   sockPreference: 'random',
+  styleLeaning: 'none',
+  colorUndertone: 'unknown',
+  boldness: 'balanced',
 };
 
 interface SettingsState extends AppSettings {
@@ -30,6 +33,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       useAiEvaluation: get().useAiEvaluation,
       geminiApiKey: get().geminiApiKey,
       sockPreference: get().sockPreference,
+      styleLeaning: get().styleLeaning,
+      colorUndertone: get().colorUndertone,
+      boldness: get().boldness,
       ...patch,
     };
     set(next);
